@@ -32,7 +32,7 @@ router.delete('/:id', sellerAuthController.deleteSeller);
 
 // Block/unblock seller (admin only)
 router.patch('/:id/block', sellerAuthController.setBlockedStatus);
-
+router.get('/:id', sellerAuthController.getSellerById);
 // Approve/disapprove seller (admin only)
 router.patch('/:id/approve', sellerAuthController.setApprovalStatus);
 

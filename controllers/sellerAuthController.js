@@ -665,7 +665,28 @@ exports.test = async (req, res) => {
     });
   }
 };
+// controllers/sellerAuthController.js
 
+
+
+// --- ADD THIS NEW CONTROLLER FUNCTION ---
+exports.getSellerById = async (req, res) => {
+  try {
+    const seller = await Seller.findById(req.params.id);
+
+    if (!seller) {
+      return res.status(404).json({ message: 'Seller not found' });
+    }
+
+    // Ensure sensitive data like password is not sent
+    seller.password = undefined; 
+
+    res.status(200).json(seller);
+  } catch (error) {
+    console.error('Error fetching seller by ID:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
 // Block or unblock a seller (admin only)
 exports.setBlockedStatus = async (req, res) => {
   try {
