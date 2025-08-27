@@ -9,6 +9,12 @@ const orderItemSchema = new mongoose.Schema({
   image: { type: String, required: false }, // Store primary image for reference
 }, { _id: false });
 
+// Schema for optional add-ons
+const addOnSchema = new mongoose.Schema({
+  name: { type: String, required: true },
+  price: { type: Number, required: true },
+}, { _id: false });
+
 
 // Main schema for an order
 const orderSchema = new mongoose.Schema({
@@ -21,8 +27,28 @@ const orderSchema = new mongoose.Schema({
     state: { type: String, required: true },
     pincode: { type: String, required: true },
     country: { type: String, required: true },
+    // NEW: For storing Google Maps location coordinates
+    location: {
+      type: {
+        type: String,
+        enum: ['Point'], // 'location.type' must be 'Point'
+        required: false
+      },
+      coordinates: {
+        type: [Number], // Array of numbers for [longitude, latitude]
+        required: false
+      }
+    }
   },
+  
+  // NEW: For scheduling a specific delivery date and time
+  scheduledDelivery: { type: Date, required: false },
+
   items: [orderItemSchema], // Use the correct schema for items
+  
+  // NEW: Optional array for add-ons like gift wrap, etc.
+  addOns: [addOnSchema], 
+
   totalAmount: { type: Number, required: true },
   paymentMethod: { type: String, required: true },
   orderStatus: { 
@@ -42,5 +68,8 @@ const orderSchema = new mongoose.Schema({
   transactionId: { type: String, required: false }, // PhonePe transaction ID
   couponCode: { type: String, required: false }, // Coupon code if applied
 }, { timestamps: true });
+
+// NEW: Add a 2dsphere index for efficient location-based queries
+orderSchema.index({ 'address.location': '2dsphere' });
 
 module.exports = mongoose.model('Order', orderSchema);

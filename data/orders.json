@@ -1,0 +1,92 @@
+[
+  {
+    "customerName": "aditya Kumar",
+    "email": "adityakumar098k@gmail.com",
+    "phone": "9114703231",
+    "address": {
+      "street": "Burla",
+      "city": "Sambalpur",
+      "state": "Odisha",
+      "pincode": "768018",
+      "country": "India",
+      "location": {
+        "type": "Point",
+        "coordinates": [
+          85.7974141,
+          20.3639142
+        ]
+      }
+    },
+    "scheduledDelivery": "2025-08-31T15:12:00.000Z",
+    "items": [
+      {
+        "name": "Golden Happy Birthday Banner",
+        "price": 299,
+        "quantity": 1,
+        "image": "https://res.cloudinary.com/demo/image/upload/birthday-banner.jpg"
+      },
+      {
+        "name": "Romantic Anniversary Heart Balloons",
+        "price": 599,
+        "quantity": 1,
+        "image": "https://res.cloudinary.com/dbwizqyzg/image/upload/v1756209184/pawnshop-products/gfctqzivqhguzm0apcc0.png"
+      }
+    ],
+    "addOns": [],
+    "totalAmount": 898,
+    "paymentMethod": "cod",
+    "orderStatus": "processing",
+    "paymentStatus": "pending",
+    "upfrontAmount": 0,
+    "remainingAmount": 898,
+    "sellerToken": null,
+    "commission": 0,
+    "_id": "68aef5721154def97537eaae",
+    "createdAt": "2025-08-27T12:09:22.666Z",
+    "updatedAt": "2025-08-27T12:09:22.666Z",
+    "__v": 0,
+    "id": "68aef5721154def97537eaae"
+  },
+  {
+    "address": {
+      "location": {
+        "type": "Point",
+        "coordinates": [
+          85.7974141,
+          20.3639142
+        ]
+      },
+      "street": "Burla",
+      "city": "Sambalpur",
+      "state": "Odisha",
+      "pincode": "768018",
+      "country": "India"
+    },
+    "_id": "68aef6a81154def97537ead9",
+    "customerName": "aditya Kumar",
+    "email": "adityakumar098k@gmail.com",
+    "phone": "919114703231",
+    "scheduledDelivery": "2025-08-28T15:17:00.000Z",
+    "items": [
+      {
+        "name": "Golden Happy Birthday Banner",
+        "price": 299,
+        "quantity": 1,
+        "image": "https://res.cloudinary.com/demo/image/upload/birthday-banner.jpg"
+      }
+    ],
+    "addOns": [],
+    "totalAmount": 299,
+    "paymentMethod": "cod",
+    "orderStatus": "confirmed",
+    "paymentStatus": "pending",
+    "upfrontAmount": 0,
+    "remainingAmount": 299,
+    "sellerToken": null,
+    "commission": 0,
+    "createdAt": "2025-08-27T12:14:32.551Z",
+    "updatedAt": "2025-08-27T12:19:56.112Z",
+    "__v": 0,
+    "id": "68aef6a81154def97537ead9"
+  }
+]
