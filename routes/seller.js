@@ -36,7 +36,5 @@ router.get('/:id', sellerAuthController.getSellerById);
 // Approve/disapprove seller (admin only)
 router.patch('/:id/approve', sellerAuthController.setApprovalStatus);
 
-// New route for withdrawing money
-router.post('/withdraw', sellerAuth, sellerAuthController.requestWithdraw);
 
 module.exports = router; 
