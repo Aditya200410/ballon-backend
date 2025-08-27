@@ -88,5 +88,41 @@
     "updatedAt": "2025-08-27T12:19:56.112Z",
     "__v": 0,
     "id": "68aef6a81154def97537ead9"
+  },
+  {
+    "customerName": "aditya Kumar",
+    "email": "adityakumar098k@gmail.com",
+    "phone": "9114703231",
+    "address": {
+      "street": "Chandaka, Khordha, Odisha, 754005, India",
+      "city": "Sambalpur",
+      "state": "Odisha",
+      "pincode": "768018",
+      "country": "India"
+    },
+    "scheduledDelivery": "2025-08-31T03:30:00.000Z",
+    "items": [
+      {
+        "productId": "68ab35517d6a677888a89689",
+        "name": "Golden Happy Birthday Banner",
+        "price": 299,
+        "quantity": 1,
+        "image": "https://res.cloudinary.com/demo/image/upload/birthday-banner.jpg"
+      }
+    ],
+    "addOns": [],
+    "totalAmount": 299,
+    "paymentMethod": "cod",
+    "orderStatus": "processing",
+    "paymentStatus": "pending",
+    "upfrontAmount": 0,
+    "remainingAmount": 299,
+    "sellerToken": null,
+    "commission": 0,
+    "_id": "68af2b39bfe8cd9500a589c4",
+    "createdAt": "2025-08-27T15:58:49.117Z",
+    "updatedAt": "2025-08-27T15:58:49.117Z",
+    "__v": 0,
+    "id": "68af2b39bfe8cd9500a589c4"
   }
 ]
