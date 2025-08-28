@@ -21,6 +21,8 @@ const couponRoutes = require('./routes/coupon');
 const crypto = require('crypto');
 const settingsController = require('./controllers/settingsController');
 const app = express();
+const subCategoryRoutes = require('./routes/subCategoryRoutes'); // Adjust path if needed
+
 
 // Generate a random JWT secret for seller authentication if not provided
 if (!process.env.JWT_SECRET_SELLER) {
@@ -139,7 +141,11 @@ app.use('/api/commission', require('./routes/commission'));
 app.use('/api/reviews', require('./routes/reviews'));
 app.use('/api/settings', require('./routes/settings'));
 app.use('/api/msg91', require('./routes/msg91'));
+// This handles requests like GET /api/categories/:id/subcategories
+app.use('/api/categories', subCategoryRoutes); 
 
+// This handles requests like PUT /api/subcategories/:id
+app.use('/api', subCategoryRoutes); // A bit broad, but will work.
 // Health check endpoint
 app.get('/health', (req, res) => {
   res.status(200).json({
