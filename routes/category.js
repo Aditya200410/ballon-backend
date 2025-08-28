@@ -6,6 +6,7 @@ const { CloudinaryStorage } = require('multer-storage-cloudinary');
 const { isAdmin, authenticateToken } = require('../middleware/auth');
 const categoryController = require('../controllers/categoryController');
 
+const SubCategory = require('../models/SubCategory');
 // Cloudinary config
 cloudinary.config({
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
@@ -17,7 +18,7 @@ cloudinary.config({
 const storage = new CloudinaryStorage({
   cloudinary: cloudinary,
   params: {
-    folder: 'pawnshop-categories',
+    folder: 'decoryy-categories',
     allowed_formats: ['jpg', 'jpeg', 'png', 'webp', 'mp4', 'webm', 'ogg'],
     transformation: [{ width: 800, height: 800, crop: 'limit' }],
     resource_type: 'auto', // This allows both images and videos
@@ -51,7 +52,10 @@ const handleUpload = (req, res, next) => {
 
 // Public routes
 router.get('/', categoryController.getAllCategories);
+router.get('/nested', categoryController.getNestedCategories);
 router.get('/:id', categoryController.getCategory);
+
+// NEW: Add this route to get all categories with their sub-categories nested
 
 // Protected admin routes with file upload
 router.post('/', authenticateToken, isAdmin, handleUpload, categoryController.createCategory);

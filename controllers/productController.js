@@ -6,7 +6,10 @@ const path = require('path');
 // Get all products
 const getAllProducts = async (req, res) => {
   try {
-    const products = await Product.find();
+    // UPDATED: Populate category and subCategory to return their names
+    const products = await Product.find()
+      .populate('category', 'name')
+      .populate('subCategory', 'name');
     res.json(products);
   } catch (error) {
     console.error('Error fetching products:', error);
@@ -34,7 +37,10 @@ const getProductsBySection = async (req, res) => {
         return res.status(400).json({ message: "Invalid section" });
     }
     
-    const products = await Product.find(query);
+    // UPDATED: Populate category and subCategory for section-based queries
+    const products = await Product.find(query)
+      .populate('category', 'name')
+      .populate('subCategory', 'name');
     res.json(products);
   } catch (error) {
     console.error(`Error fetching ${section} products:`, error);
@@ -45,7 +51,10 @@ const getProductsBySection = async (req, res) => {
 // Get single product
 const getProduct = async (req, res) => {
   try {
-    const product = await Product.findById(req.params.id);
+    // UPDATED: Populate category and subCategory for a single product view
+    const product = await Product.findById(req.params.id)
+      .populate('category', 'name slug')
+      .populate('subCategory', 'name slug');
     if (!product) {
       return res.status(404).json({ message: "Product not found" });
     }
@@ -59,77 +68,36 @@ const getProduct = async (req, res) => {
 // Create new product with file upload
 const createProductWithFiles = async (req, res) => {
   try {
-    console.log('=== Starting Product Creation ===');
-    console.log('Headers:', req.headers);
-    console.log('Files received:', req.files);
     console.log('Body data:', req.body);
-    console.log('Auth token:', req.headers.authorization);
-
+    
     if (!req.files || !req.files.mainImage) {
-      console.log('Error: Missing main image');
-      return res.status(400).json({ 
-        error: 'Main image is required. Make sure you are uploading as multipart/form-data and the main image field is named "mainImage".' 
-      });
+      return res.status(400).json({ error: 'Main image is required.' });
     }
 
     const files = req.files;
     const productData = req.body;
     
-    // Validate required fields
     const requiredFields = [
-      "name",
-      "material",
-      "description",
-      "size",
-      "colour",
-      "category",
-      "weight",
-      "utility",
-      "care",
-      "price",
-      "regularPrice"
+      "name", "material",
+      "category",// NEW: Added subCategory to validation
+       "price", "regularPrice"
     ];
 
-    console.log('Validating required fields...');
-    const missingFields = [];
-    for (const field of requiredFields) {
-      if (!productData[field]) {
-        missingFields.push(field);
-        console.log(`Missing required field: ${field}`);
-      }
-    }
+    const missingFields = requiredFields.filter(field => !productData[field]);
 
     if (missingFields.length > 0) {
-      console.log('Error: Missing required fields:', missingFields);
       return res.status(400).json({ error: `Missing required fields: ${missingFields.join(', ')}` });
     }
 
-    // Process uploaded files
-    console.log('Processing uploaded files...');
     const imagePaths = [];
-    
-    // Main image
     if (files.mainImage && files.mainImage[0]) {
-      const mainImageUrl = files.mainImage[0].path; // Cloudinary URL
-      imagePaths.push(mainImageUrl);
-      console.log('Added main image:', mainImageUrl);
+      imagePaths.push(files.mainImage[0].path);
     }
-
-    // Additional images
     for (let i = 1; i <= 3; i++) {
       if (files[`image${i}`] && files[`image${i}`][0]) {
-        const imageUrl = files[`image${i}`][0].path; // Cloudinary URL
-        imagePaths.push(imageUrl);
-        console.log(`Added image${i}:`, imageUrl);
+        imagePaths.push(files[`image${i}`][0].path);
       }
     }
-
-    console.log('Creating new product with data:', {
-      name: productData.name,
-      category: productData.category,
-      price: productData.price,
-      images: imagePaths
-    });
 
     const newProduct = new Product({
       name: productData.name,
@@ -138,38 +106,33 @@ const createProductWithFiles = async (req, res) => {
       size: productData.size,
       colour: productData.colour,
       category: productData.category,
+      subCategory: productData.subCategory, // NEW: Added subCategory to product creation
       weight: productData.weight,
       utility: productData.utility,
       care: productData.care,
       price: parseFloat(productData.price),
       regularPrice: parseFloat(productData.regularPrice),
-      image: imagePaths[0], // Main image Cloudinary URL
-      images: imagePaths, // All Cloudinary URLs
-      inStock: productData.inStock === 'true' || productData.inStock === true,
-      isBestSeller: productData.isBestSeller === 'true' || productData.isBestSeller === true,
-      isFeatured: productData.isFeatured === 'true' || productData.isFeatured === true,
-      isMostLoved: productData.isMostLoved === 'true' || productData.isMostLoved === true,
-      codAvailable: productData.codAvailable === 'false' ? false : true,
-      stock: typeof productData.stock !== 'undefined' ? Number(productData.stock) : 0
+      image: imagePaths[0],
+      images: imagePaths,
+      inStock: productData.inStock === 'true',
+      isBestSeller: productData.isBestSeller === 'true',
+      isFeatured: productData.isFeatured === 'true',
+      isMostLoved: productData.isMostLoved === 'true',
+      codAvailable: productData.codAvailable !== 'false',
+      stock: Number(productData.stock) || 0
     });
     
-    console.log('Saving product to database...');
     const savedProduct = await newProduct.save();
-    console.log('Product saved successfully:', savedProduct);
     
-    res.status(201).json({ 
+    res.status(21).json({ 
       message: "Product created successfully", 
       product: savedProduct,
-      uploadedFiles: files
     });
   } catch (error) {
-    console.error('=== Error creating product ===');
-    console.error('Error details:', error);
-    console.error('Stack trace:', error.stack);
+    console.error('Error creating product:', error);
     res.status(500).json({ 
       message: "Error creating product", 
       error: error.message,
-      details: error.stack
     });
   }
 };
@@ -177,9 +140,6 @@ const createProductWithFiles = async (req, res) => {
 // Update product with file upload
 const updateProductWithFiles = async (req, res) => {
   try {
-    console.log('Updating product with files:', req.files);
-    console.log('Update data:', req.body);
-
     const id = req.params.id;
     const files = req.files || {};
     const productData = req.body;
@@ -189,48 +149,29 @@ const updateProductWithFiles = async (req, res) => {
       return res.status(404).json({ message: "Product not found" });
     }
 
-    // Initialize imagePaths with existing images
     let imagePaths = existingProduct.images || [];
     if (!Array.isArray(imagePaths)) {
-      // If images is not an array, initialize it with the main image if it exists
       imagePaths = existingProduct.image ? [existingProduct.image] : [];
     }
 
-    // Handle main image update
     if (files.mainImage && files.mainImage[0]) {
-      const mainImageUrl = files.mainImage[0].path;
-      if (imagePaths.length === 0) {
-        imagePaths.push(mainImageUrl);
-      } else {
-        imagePaths[0] = mainImageUrl;
-      }
+      imagePaths[0] = files.mainImage[0].path;
     }
 
-    // Handle additional images
     for (let i = 1; i <= 3; i++) {
       if (files[`image${i}`] && files[`image${i}`][0]) {
-        const imageUrl = files[`image${i}`][0].path;
-        if (i < imagePaths.length) {
-          imagePaths[i] = imageUrl;
-        } else {
-          imagePaths.push(imageUrl);
-        }
+        imagePaths[i] = files[`image${i}`][0].path;
       }
     }
 
-    // Ensure we have at least one image
-    if (imagePaths.length === 0 && existingProduct.image) {
-      imagePaths.push(existingProduct.image);
-    }
-
-    // Update product object
-    const updatedProduct = {
+    const updatedProductData = {
       name: productData.name || existingProduct.name,
       material: productData.material || existingProduct.material,
       description: productData.description || existingProduct.description,
       size: productData.size || existingProduct.size,
       colour: productData.colour || existingProduct.colour,
       category: productData.category || existingProduct.category,
+      subCategory: productData.subCategory || existingProduct.subCategory, // NEW: Added subCategory to update logic
       weight: productData.weight || existingProduct.weight,
       utility: productData.utility || existingProduct.utility,
       care: productData.care || existingProduct.care,
@@ -238,15 +179,15 @@ const updateProductWithFiles = async (req, res) => {
       regularPrice: productData.regularPrice ? parseFloat(productData.regularPrice) : existingProduct.regularPrice,
       image: imagePaths[0],
       images: imagePaths,
-      inStock: productData.inStock !== undefined ? (productData.inStock === 'true' || productData.inStock === true) : existingProduct.inStock,
-      isBestSeller: productData.isBestSeller !== undefined ? (productData.isBestSeller === 'true' || productData.isBestSeller === true) : existingProduct.isBestSeller,
-      isFeatured: productData.isFeatured !== undefined ? (productData.isFeatured === 'true' || productData.isFeatured === true) : existingProduct.isFeatured,
-      isMostLoved: productData.isMostLoved !== undefined ? (productData.isMostLoved === 'true' || productData.isMostLoved === true) : existingProduct.isMostLoved,
-      codAvailable: productData.codAvailable === 'false' ? false : true,
-      stock: typeof productData.stock !== 'undefined' ? Number(productData.stock) : existingProduct.stock
+      inStock: productData.inStock !== undefined ? (productData.inStock === 'true') : existingProduct.inStock,
+      isBestSeller: productData.isBestSeller !== undefined ? (productData.isBestSeller === 'true') : existingProduct.isBestSeller,
+      isFeatured: productData.isFeatured !== undefined ? (productData.isFeatured === 'true') : existingProduct.isFeatured,
+      isMostLoved: productData.isMostLoved !== undefined ? (productData.isMostLoved === 'true') : existingProduct.isMostLoved,
+      codAvailable: productData.codAvailable !== undefined ? (productData.codAvailable !== 'false') : existingProduct.codAvailable,
+      stock: productData.stock !== undefined ? Number(productData.stock) : existingProduct.stock
     };
 
-    const result = await Product.findByIdAndUpdate(id, updatedProduct, { new: true });
+    const result = await Product.findByIdAndUpdate(id, updatedProductData, { new: true });
     res.json({ message: "Product updated successfully", product: result });
   } catch (error) {
     console.error('Error updating product:', error);

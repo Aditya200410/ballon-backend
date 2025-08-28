@@ -1,5 +1,6 @@
 const Category = require('../models/cate');
 
+const SubCategory = require('../models/SubCategory');
 // Get all categories
 exports.getAllCategories = async (req, res) => {
   try {
@@ -9,6 +10,38 @@ exports.getAllCategories = async (req, res) => {
     console.error('Error in getAllCategories:', error);
     res.status(500).json({ message: 'Error fetching categories' });
   }
+};
+exports.getNestedCategories = async (req, res) => {
+    try {
+        // 1. Fetch all main categories and all sub-categories in parallel
+        const [categories, subCategories] = await Promise.all([
+            Category.find({ isActive: true }).sort({ sortOrder: 1 }).lean(),
+            SubCategory.find({ isActive: true }).sort({ sortOrder: 1 }).lean()
+        ]);
+
+        // 2. Create a map for quick lookup of sub-categories by their parent ID
+        const subCategoryMap = {};
+        for (const sub of subCategories) {
+            const parentId = sub.parentCategory.toString();
+            if (!subCategoryMap[parentId]) {
+                subCategoryMap[parentId] = [];
+            }
+            subCategoryMap[parentId].push(sub);
+        }
+
+        // 3. Attach the sub-categories to their parent category
+        const nestedCategories = categories.map(category => ({
+            ...category,
+            // Find matching sub-categories or return an empty array
+            subCategories: subCategoryMap[category._id.toString()] || [] 
+        }));
+
+        res.status(200).json(nestedCategories);
+
+    } catch (error) {
+        console.error('Error fetching nested categories:', error);
+        res.status(500).json({ message: 'Error fetching nested category data.', error: error.message });
+    }
 };
 
 // Get single category
