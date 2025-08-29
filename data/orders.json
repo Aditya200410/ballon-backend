@@ -124,5 +124,41 @@
     "updatedAt": "2025-08-27T15:58:49.117Z",
     "__v": 0,
     "id": "68af2b39bfe8cd9500a589c4"
+  },
+  {
+    "customerName": "aditya Kumar",
+    "email": "adityakumar098k@gmail.com",
+    "phone": "9114703231",
+    "address": {
+      "street": "Burla",
+      "city": "Sambalpur",
+      "state": "Odisha",
+      "pincode": "768018",
+      "country": "India"
+    },
+    "scheduledDelivery": null,
+    "items": [
+      {
+        "productId": "68ab35517d6a677888a89686",
+        "name": "Romantic Anniversary Heart Balloons",
+        "price": 599,
+        "quantity": 1,
+        "image": "https://res.cloudinary.com/dbwizqyzg/image/upload/v1756209184/pawnshop-products/gfctqzivqhguzm0apcc0.png"
+      }
+    ],
+    "addOns": [],
+    "totalAmount": 599,
+    "paymentMethod": "cod",
+    "orderStatus": "processing",
+    "paymentStatus": "pending",
+    "upfrontAmount": 0,
+    "remainingAmount": 599,
+    "sellerToken": null,
+    "commission": 0,
+    "_id": "68b02c5167246985674b1222",
+    "createdAt": "2025-08-28T10:15:45.077Z",
+    "updatedAt": "2025-08-28T10:15:45.077Z",
+    "__v": 0,
+    "id": "68b02c5167246985674b1222"
   }
 ]

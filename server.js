@@ -34,8 +34,9 @@ if (!process.env.JWT_SECRET_SELLER) {
 const allowedOrigins = [
   'http://localhost:5173',
   'http://localhost:5174',
-  'https://ballonparty-frontend.vercel.app',
-  'https://ballon-frontend.vercel.app'
+
+  'https://ballon-frontend.vercel.app',
+  'https://ballon-admin-beta.vercel.app'
 ];
 
 
