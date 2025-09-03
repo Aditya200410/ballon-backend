@@ -124,7 +124,7 @@ const createProductWithFiles = async (req, res) => {
     
     const savedProduct = await newProduct.save();
     
-    res.status(21).json({ 
+    res.status(201).json({ 
       message: "Product created successfully", 
       product: savedProduct,
     });
