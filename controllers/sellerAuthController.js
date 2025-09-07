@@ -15,7 +15,17 @@ exports.register = async (req, res) => {
       location,
       startingPrice,
       description,
-      maxPersonsAllowed
+      maxPersonsAllowed,
+      amenity,
+      totalHalls,
+      enquiryDetails,
+      bookingOpens,
+      workingTimes,
+      workingDates,
+      foodType,
+      roomsAvailable,
+      bookingPolicy,
+      additionalFeatures
     } = req.body;
 
     const normalizedEmail = email && email.toLowerCase().trim();
@@ -58,7 +68,16 @@ exports.register = async (req, res) => {
       startingPrice,
       description,
       maxPersonsAllowed,
-    
+      amenity: amenity ? (Array.isArray(amenity) ? amenity : amenity.split(',').map(item => item.trim())) : [],
+      totalHalls: totalHalls || 1,
+      enquiryDetails,
+      bookingOpens,
+      workingTimes,
+      workingDates,
+      foodType: foodType ? (Array.isArray(foodType) ? foodType : foodType.split(',').map(item => item.trim())) : [],
+      roomsAvailable: roomsAvailable || 1,
+      bookingPolicy,
+      additionalFeatures: additionalFeatures ? (Array.isArray(additionalFeatures) ? additionalFeatures : additionalFeatures.split(',').map(item => item.trim())) : [],
       images
     });
 
@@ -90,7 +109,16 @@ exports.register = async (req, res) => {
         startingPrice: seller.startingPrice,
         description: seller.description,
         maxPersonsAllowed: seller.maxPersonsAllowed,
-        
+        amenity: seller.amenity || [],
+        totalHalls: seller.totalHalls || 1,
+        enquiryDetails: seller.enquiryDetails || '',
+        bookingOpens: seller.bookingOpens || '',
+        workingTimes: seller.workingTimes || '',
+        workingDates: seller.workingDates || '',
+        foodType: seller.foodType || [],
+        roomsAvailable: seller.roomsAvailable || 1,
+        bookingPolicy: seller.bookingPolicy || '',
+        additionalFeatures: seller.additionalFeatures || [],
         images: seller.images || [],
         profileImage: seller.profileImage || null,
         createdAt: seller.createdAt,
@@ -151,7 +179,16 @@ exports.login = async (req, res) => {
         startingPrice: seller.startingPrice,
         description: seller.description,
         maxPersonsAllowed: seller.maxPersonsAllowed,
-       
+        amenity: seller.amenity || [],
+        totalHalls: seller.totalHalls || 1,
+        enquiryDetails: seller.enquiryDetails || '',
+        bookingOpens: seller.bookingOpens || '',
+        workingTimes: seller.workingTimes || '',
+        workingDates: seller.workingDates || '',
+        foodType: seller.foodType || [],
+        roomsAvailable: seller.roomsAvailable || 1,
+        bookingPolicy: seller.bookingPolicy || '',
+        additionalFeatures: seller.additionalFeatures || [],
         images: seller.images || [],
         profileImage: seller.profileImage || null,
         createdAt: seller.createdAt,
@@ -466,19 +503,25 @@ exports.test = async (req, res) => {
 // --- ADD THIS NEW CONTROLLER FUNCTION ---
 exports.getSellerById = async (req, res) => {
   try {
-    const seller = await Seller.findById(req.params.id);
+    const seller = await Seller.findById(req.params.id).select('-password');
 
     if (!seller) {
-      return res.status(404).json({ message: 'Seller not found' });
+      return res.status(404).json({ 
+        success: false, 
+        message: 'Seller not found' 
+      });
     }
 
-    // Ensure sensitive data like password is not sent
-    seller.password = undefined; 
-
-    res.status(200).json(seller);
+    res.status(200).json({ 
+      success: true, 
+      seller: seller 
+    });
   } catch (error) {
     console.error('Error fetching seller by ID:', error);
-    res.status(500).json({ message: 'Server error' });
+    res.status(500).json({ 
+      success: false, 
+      message: 'Server error' 
+    });
   }
 };
 // Block or unblock a seller (admin only)

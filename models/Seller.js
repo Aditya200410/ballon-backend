@@ -67,6 +67,60 @@ const sellerSchema = new mongoose.Schema({
     default: 50
   },
 
+  // ✅ New Fields for Enhanced Venue Information
+  amenity: {
+    type: [String],
+    required: false,
+    default: []
+  },
+  totalHalls: {
+    type: Number,
+    required: false,
+    default: 1
+  },
+  enquiryDetails: {
+    type: String,
+    required: false,
+    trim: true
+  },
+
+  // ✅ Enhanced Venue Details
+  bookingOpens: {
+    type: String,
+    required: false,
+    trim: true
+  },
+  workingTimes: {
+    type: String,
+    required: false,
+    trim: true
+  },
+  workingDates: {
+    type: String,
+    required: false,
+    trim: true
+  },
+  foodType: {
+    type: [String],
+    required: false,
+    default: []
+  },
+  roomsAvailable: {
+    type: Number,
+    required: false,
+    default: 1
+  },
+  bookingPolicy: {
+    type: String,
+    required: false,
+    trim: true
+  },
+  additionalFeatures: {
+    type: [String],
+    required: false,
+    default: []
+  },
+
   createdAt: {
     type: Date,
     default: Date.now
@@ -98,6 +152,9 @@ sellerSchema.pre('save', async function(next) {
   }
 });
 
-
+// Compare password method
+sellerSchema.methods.comparePassword = async function(candidatePassword) {
+  return bcrypt.compare(candidatePassword, this.password);
+};
 
 module.exports = mongoose.model('Seller', sellerSchema);

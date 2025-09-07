@@ -97,16 +97,16 @@ const createCarouselItemWithFiles = async (req, res) => {
   try {
     console.log('=== Starting Hero Carousel Item Creation ===');
     console.log('Headers:', req.headers);
-    console.log('Files received:', req.files);
+    console.log('File received:', req.file);
     console.log('Body data:', req.body);
 
     // Require image
-    if (!req.files || !req.files.image) {
+    if (!req.file) {
       return res.status(400).json({ 
         error: 'Image is required. Make sure you are uploading as multipart/form-data and the file field is named "image".' 
       });
     }
-    const files = req.files;
+    const file = req.file;
     const itemData = req.body;
     // Validate required fields
     const requiredFields = ["title"];
@@ -120,7 +120,7 @@ const createCarouselItemWithFiles = async (req, res) => {
       return res.status(400).json({ error: `Missing required fields: ${missingFields.join(', ')}` });
     }
     // Process uploaded file
-    const imageUrl = files.image[0].path;
+    const imageUrl = file.path;
     // Get current max order
     const maxOrderItem = await HeroCarousel.findOne().sort('-order');
     const newOrder = maxOrderItem ? maxOrderItem.order + 1 : 0;
@@ -142,7 +142,7 @@ const createCarouselItemWithFiles = async (req, res) => {
     res.status(201).json({ 
       message: "Carousel item created successfully", 
       item: savedItem,
-      uploadedFiles: files
+      uploadedFile: file
     });
   } catch (error) {
     console.error('=== Error creating carousel item ===');
@@ -159,7 +159,7 @@ const createCarouselItemWithFiles = async (req, res) => {
 // Update carousel item with file upload
 const updateCarouselItemWithFiles = async (req, res) => {
   try {
-    console.log('Updating carousel item with files:', req.files);
+    console.log('Updating carousel item with file:', req.file);
     console.log('Update data:', req.body);
 
     const id = req.params.id;
@@ -167,7 +167,7 @@ const updateCarouselItemWithFiles = async (req, res) => {
       return res.status(400).json({ message: "Carousel item ID is required" });
     }
 
-    const files = req.files || {};
+    const file = req.file;
     const itemData = req.body;
     
     const existingItem = await HeroCarousel.findById(id);
@@ -177,8 +177,8 @@ const updateCarouselItemWithFiles = async (req, res) => {
 
     // Update logic
     let imageUrl = existingItem.image;
-    if (files.image && files.image[0]) {
-      imageUrl = files.image[0].path;
+    if (file) {
+      imageUrl = file.path;
     }
     const updatedItem = {
       title: (itemData.title || existingItem.title).trim(),
@@ -194,7 +194,7 @@ const updateCarouselItemWithFiles = async (req, res) => {
     console.log('Updating carousel item with data:', {
       id,
       imageUrl: imageUrl,
-      filesReceived: Object.keys(files)
+      fileReceived: file ? file.originalname : 'none'
     });
 
     const savedItem = await HeroCarousel.findByIdAndUpdate(id, updatedItem, { new: true });
@@ -202,7 +202,7 @@ const updateCarouselItemWithFiles = async (req, res) => {
     res.json({ 
       message: "Carousel item updated successfully", 
       item: savedItem,
-      uploadedFiles: files
+      uploadedFile: file
     });
   } catch (error) {
     console.error('Error updating carousel item:', error);
