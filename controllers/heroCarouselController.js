@@ -21,8 +21,14 @@ const storage = new CloudinaryStorage({
   params: {
     folder: 'hero-carousel',
     allowed_formats: ['jpg', 'jpeg', 'png', 'gif', 'mp4', 'webp'],
-    transformation: [{ width: 1920, height: 1080, crop: 'limit' }],
-    resource_type: 'auto'
+    transformation: [
+      { width: 1920, height: 1080, crop: 'limit', quality: 'auto:good' },
+      { fetch_format: 'auto' }
+    ],
+    resource_type: 'auto',
+    use_filename: true,
+    unique_filename: false,
+    overwrite: false
   }
 });
 
@@ -94,10 +100,16 @@ const getActiveCarouselItems = async (req, res) => {
 
 // Create carousel item with file upload
 const createCarouselItemWithFiles = async (req, res) => {
+  const startTime = Date.now();
   try {
     console.log('=== Starting Hero Carousel Item Creation ===');
     console.log('Headers:', req.headers);
-    console.log('File received:', req.file);
+    console.log('File received:', req.file ? {
+      originalname: req.file.originalname,
+      mimetype: req.file.mimetype,
+      size: req.file.size,
+      path: req.file.path
+    } : 'No file');
     console.log('Body data:', req.body);
 
     // Require image
@@ -108,6 +120,10 @@ const createCarouselItemWithFiles = async (req, res) => {
     }
     const file = req.file;
     const itemData = req.body;
+    
+    // Log file processing time
+    const fileProcessingTime = Date.now() - startTime;
+    console.log(`File processing took: ${fileProcessingTime}ms`);
     // Validate required fields
     const requiredFields = ["title"];
     const missingFields = [];
@@ -136,13 +152,24 @@ const createCarouselItemWithFiles = async (req, res) => {
     });
 
     console.log('Saving carousel item to database...');
+    const dbStartTime = Date.now();
     const savedItem = await newItem.save();
+    const dbTime = Date.now() - dbStartTime;
+    console.log(`Database save took: ${dbTime}ms`);
     console.log('Carousel item saved successfully:', savedItem);
+    
+    const totalTime = Date.now() - startTime;
+    console.log(`Total creation time: ${totalTime}ms`);
     
     res.status(201).json({ 
       message: "Carousel item created successfully", 
       item: savedItem,
-      uploadedFile: file
+      uploadedFile: file,
+      performance: {
+        totalTime: `${totalTime}ms`,
+        fileProcessing: `${fileProcessingTime}ms`,
+        databaseSave: `${dbTime}ms`
+      }
     });
   } catch (error) {
     console.error('=== Error creating carousel item ===');
