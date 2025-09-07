@@ -1,10 +1,10 @@
 const express = require('express');
 const router = express.Router();
-const multer = require('multer');
 const { isAdmin, authenticateToken } = require('../middleware/auth');
 
+// Import the corrected middleware and controller functions
 const {
-  upload,
+  uploadMiddleware, // Changed from 'upload'
   getAllCarouselItems,
   getCarouselItem,
   getActiveCarouselItems,
@@ -15,36 +15,35 @@ const {
   updateCarouselOrder
 } = require('../controllers/heroCarouselController');
 
-// Configure single file upload field
-const uploadFields = upload.fields([
-  { name: 'image', maxCount: 1 }
-]);
-
-// Middleware to handle multer upload
-const handleUpload = (req, res, next) => {
-  uploadFields(req, res, function(err) {
-    if (err instanceof multer.MulterError) {
-      return res.status(400).json({ error: 'File upload error', details: err.message });
-    } else if (err) {
-      return res.status(500).json({ error: 'Server error', details: err.message });
-    }
-    next();
-  });
-};
-
-// Public routes
+// --- Public Routes ---
+// Get all active carousel items for the public-facing site
 router.get('/active', getActiveCarouselItems);
+
+// Get all carousel items (useful for an admin panel)
 router.get('/', getAllCarouselItems);
 
-// Protected routes
+
+// --- Protected Admin Routes ---
+// All routes below this point require authentication and admin privileges
 router.use(authenticateToken);
 router.use(isAdmin);
 
+// Get a single carousel item by its ID
 router.get('/:id', getCarouselItem);
-router.post('/', handleUpload, createCarouselItemWithFiles);
-router.put('/:id', handleUpload, updateCarouselItemWithFiles);
+
+// Create a new carousel item (with image upload)
+router.post('/', uploadMiddleware, createCarouselItemWithFiles);
+
+// Update an existing carousel item by ID (with optional new image upload)
+router.put('/:id', uploadMiddleware, updateCarouselItemWithFiles);
+
+// Delete a carousel item by ID
 router.delete('/:id', deleteCarouselItem);
+
+// Toggle the 'isActive' status of a carousel item
 router.patch('/:id/toggle-active', toggleCarouselActive);
+
+// Update the display order of all carousel items
 router.post('/update-order', updateCarouselOrder);
 
-module.exports = router; 
+module.exports = router;

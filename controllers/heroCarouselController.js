@@ -126,8 +126,7 @@ const createCarouselItemWithFiles = async (req, res) => {
     const newOrder = maxOrderItem ? maxOrderItem.order + 1 : 0;
     const newItem = new HeroCarousel({
       title: itemData.title.trim(),
-      subtitle: (itemData.subtitle || '').trim(),
-      description: (itemData.description || '').trim(),
+    
       buttonText: (itemData.buttonText || 'Shop Now').trim(),
       buttonLink: (itemData.buttonLink || '/shop').trim(),
       image: imageUrl,
@@ -183,8 +182,6 @@ const updateCarouselItemWithFiles = async (req, res) => {
     }
     const updatedItem = {
       title: (itemData.title || existingItem.title).trim(),
-      subtitle: (itemData.subtitle || existingItem.subtitle || '').trim(),
-      description: (itemData.description || existingItem.description || '').trim(),
       buttonText: (itemData.buttonText || existingItem.buttonText || 'Shop Now').trim(),
       buttonLink: (itemData.buttonLink || existingItem.buttonLink || '/shop').trim(),
       image: imageUrl,
@@ -266,7 +263,7 @@ const updateCarouselOrder = async (req, res) => {
 };
 
 module.exports = {
-  upload,
+  uploadMiddleware: upload.single('image'),
   getAllCarouselItems,
   getCarouselItem,
   getActiveCarouselItems,
