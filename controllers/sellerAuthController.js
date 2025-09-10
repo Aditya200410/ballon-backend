@@ -394,6 +394,35 @@ exports.getAllSellers = async (req, res) => {
   }
 };
 
+// Public method to get approved venues (no authentication required)
+exports.getApprovedVenues = async (req, res) => {
+  try {
+    console.log('=== GET APPROVED VENUES REQUEST ===');
+    
+    const venues = await Seller.find(
+      { 
+        approved: true, 
+        blocked: false 
+      }, 
+      '-password -email -phone -address -description -amenity -totalHalls -enquiryDetails -bookingOpens -workingTimes -workingDates -foodType -roomsAvailable -bookingPolicy -additionalFeatures -createdAt -updatedAt -__v'
+    );
+    
+    console.log('Found approved venues count:', venues.length);
+
+    res.json({
+      success: true,
+      sellers: venues
+    });
+  } catch (error) {
+    console.error('Error fetching approved venues:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching venues',
+      error: error.message
+    });
+  }
+};
+
 // Update unique fields for existing sellers
 exports.updateUniqueFields = async (req, res) => {
   try {
@@ -574,6 +603,55 @@ exports.deleteSeller = async (req, res) => {
   } catch (error) {
     console.error('Delete seller error:', error);
     res.status(500).json({ success: false, message: 'Error deleting seller' });
+  }
+};
+
+// Update seller profile (admin only)
+exports.updateSellerProfile = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const updates = {
+      businessName: req.body.businessName,
+      phone: req.body.phone,
+      address: req.body.address,
+      businessType: req.body.businessType,
+      location: req.body.location,
+      startingPrice: req.body.startingPrice,
+      description: req.body.description,
+      maxPersonsAllowed: req.body.maxPersonsAllowed,
+      amenity: req.body.amenity,
+      totalHalls: req.body.totalHalls,
+      enquiryDetails: req.body.enquiryDetails,
+      bookingOpens: req.body.bookingOpens,
+      workingTimes: req.body.workingTimes,
+      workingDates: req.body.workingDates,
+      foodType: req.body.foodType,
+      roomsAvailable: req.body.roomsAvailable,
+      bookingPolicy: req.body.bookingPolicy,
+      additionalFeatures: req.body.additionalFeatures
+    };
+
+    // Remove undefined values
+    Object.keys(updates).forEach(key => {
+      if (updates[key] === undefined) {
+        delete updates[key];
+      }
+    });
+
+    const seller = await Seller.findByIdAndUpdate(
+      id,
+      { $set: updates },
+      { new: true, runValidators: true }
+    ).select('-password');
+
+    if (!seller) {
+      return res.status(404).json({ success: false, message: 'Seller not found' });
+    }
+
+    res.json({ success: true, seller });
+  } catch (error) {
+    console.error('Update seller profile error:', error);
+    res.status(500).json({ success: false, message: 'Error updating seller profile' });
   }
 };
 

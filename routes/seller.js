@@ -3,6 +3,7 @@ const router = express.Router();
 const sellerAuthController = require('../controllers/sellerAuthController');
 const { handleMultipleImages, handleProfileImage } = require('../middleware/sellerUpload');
 const sellerAuth = require('../middleware/sellerAuth');
+const { auth } = require('../middleware/auth');
 
 // Test route
 router.get('/test', sellerAuthController.test);
@@ -15,7 +16,10 @@ router.post('/register', handleMultipleImages, sellerAuthController.register);
 router.post('/login', sellerAuthController.login);
 
 // Admin route to get all sellers
-router.get('/all', sellerAuthController.getAllSellers);
+router.get('/all', auth, sellerAuthController.getAllSellers);
+
+// Public route to get approved venues (no authentication required)
+router.get('/venues', sellerAuthController.getApprovedVenues);
 
 // Profile routes (using JWT authentication)
 router.get('/profile', sellerAuth, sellerAuthController.getProfile);
@@ -28,13 +32,15 @@ router.delete('/delete-image/:imageId', sellerAuthController.deleteImage);
 router.put('/update-unique-fields', sellerAuthController.updateUniqueFields);
 
 // Delete seller (admin only)
-router.delete('/:id', sellerAuthController.deleteSeller);
+router.delete('/:id', auth, sellerAuthController.deleteSeller);
 
 // Block/unblock seller (admin only)
-router.patch('/:id/block', sellerAuthController.setBlockedStatus);
+router.patch('/:id/block', auth, sellerAuthController.setBlockedStatus);
 router.get('/:id', sellerAuthController.getSellerById);
 // Approve/disapprove seller (admin only)
-router.patch('/:id/approve', sellerAuthController.setApprovalStatus);
+router.patch('/:id/approve', auth, sellerAuthController.setApprovalStatus);
+// Update seller profile (admin only)
+router.put('/:id/profile', auth, sellerAuthController.updateSellerProfile);
 
 
 module.exports = router; 
