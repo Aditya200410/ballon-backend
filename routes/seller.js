@@ -21,6 +21,9 @@ router.get('/all', auth, sellerAuthController.getAllSellers);
 // Public route to get approved venues (no authentication required)
 router.get('/venues', sellerAuthController.getApprovedVenues);
 
+// Public route to increment seller views (no authentication required)
+router.post('/:id/view', sellerAuthController.incrementViews);
+
 // Profile routes (using JWT authentication)
 router.get('/profile', sellerAuth, sellerAuthController.getProfile);
 router.put('/profile', sellerAuth, sellerAuthController.updateProfile);

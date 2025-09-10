@@ -655,3 +655,36 @@ exports.updateSellerProfile = async (req, res) => {
   }
 };
 
+// Increment seller views (public endpoint)
+exports.incrementViews = async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    const seller = await Seller.findByIdAndUpdate(
+      id,
+      { $inc: { views: 1 } },
+      { new: true }
+    ).select('views businessName');
+
+    if (!seller) {
+      return res.status(404).json({ 
+        success: false, 
+        message: 'Seller not found' 
+      });
+    }
+
+    res.json({ 
+      success: true, 
+      message: 'View count updated successfully',
+      views: seller.views,
+      sellerName: seller.businessName
+    });
+  } catch (error) {
+    console.error('Increment views error:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Error updating view count' 
+    });
+  }
+};
+
