@@ -110,6 +110,11 @@ const initializeDefaultSettings = async () => {
         key: 'cod_upfront_amount',
         value: 39,
         description: 'Upfront payment amount for Cash on Delivery orders (in rupees)'
+      },
+      {
+        key: 'default_service_fee',
+        value: 0,
+        description: 'Default service fee for pin codes not in any specific range (in rupees)'
       }
     ];
     

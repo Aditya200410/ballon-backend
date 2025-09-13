@@ -142,6 +142,7 @@ app.use('/api/commission', require('./routes/commission'));
 app.use('/api/reviews', require('./routes/reviews'));
 app.use('/api/settings', require('./routes/settings'));
 app.use('/api/msg91', require('./routes/msg91'));
+app.use('/api/pin-code-service-fees', require('./routes/pinCodeServiceFee'));
 // This handles requests like GET /api/categories/:id/subcategories
 app.use('/api/categories', subCategoryRoutes); 
 
