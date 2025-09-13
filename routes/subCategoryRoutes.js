@@ -2,14 +2,15 @@ const express = require('express');
 const router = express.Router();
 const Category = require('../models/cate'); // Adjust path if necessary
 const SubCategory = require('../models/SubCategory'); // The new model
+const { handleSubCategoryImage } = require('../middleware/subCategoryUpload');
 
 // Note: It's a good practice to protect these routes with authentication middleware.
 
 // POST - Add a new sub-category to a specific category
-router.post('/:categoryId/subcategories', async (req, res) => {
+router.post('/:categoryId/subcategories', handleSubCategoryImage, async (req, res) => {
   try {
     const { categoryId } = req.params;
-    const { name, description, image, video, isActive, sortOrder } = req.body;
+    const { name, description, video, isActive, sortOrder } = req.body;
 
     // 1. Check if the parent category exists
     const parentCategory = await Category.findById(categoryId);
@@ -17,11 +18,17 @@ router.post('/:categoryId/subcategories', async (req, res) => {
       return res.status(404).json({ message: 'Parent category not found' });
     }
 
-    // 2. Create the new sub-category
+    // 2. Handle image upload
+    let imageUrl = '';
+    if (req.file) {
+      imageUrl = req.file.path; // Cloudinary URL
+    }
+
+    // 3. Create the new sub-category
     const newSubCategory = new SubCategory({
       name,
       description,
-      image,
+      image: imageUrl,
       video,
       isActive,
       sortOrder,
@@ -56,10 +63,15 @@ router.get('/:categoryId/subcategories', async (req, res) => {
 
 
 // PUT - Update a specific sub-category by its ID
-router.put('/subcategories/:subCategoryId', async (req, res) => {
+router.put('/subcategories/:subCategoryId', handleSubCategoryImage, async (req, res) => {
   try {
     const { subCategoryId } = req.params;
-    const updates = req.body;
+    const updates = { ...req.body };
+
+    // Handle image upload if file is provided
+    if (req.file) {
+      updates.image = req.file.path; // Cloudinary URL
+    }
 
     // The { new: true } option returns the document after the update is applied.
     const updatedSubCategory = await SubCategory.findByIdAndUpdate(subCategoryId, updates, { new: true, runValidators: true });
