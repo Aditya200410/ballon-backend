@@ -7,6 +7,28 @@ const Product = require('../models/Product');
 const commissionController = require('./commissionController');
 const nodemailer = require('nodemailer');
 
+// Utility function to format scheduled delivery time
+const formatScheduledDelivery = (scheduledDelivery) => {
+  if (!scheduledDelivery) return null;
+  
+  const deliveryDate = new Date(scheduledDelivery);
+  return {
+    date: deliveryDate.toISOString().split('T')[0], // YYYY-MM-DD format
+    time: deliveryDate.toTimeString().split(' ')[0].substring(0, 5), // HH:MM format
+    formatted: deliveryDate.toLocaleString('en-IN', {
+      timeZone: 'Asia/Kolkata',
+      weekday: 'long',
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit',
+      hour12: true
+    }),
+    timestamp: deliveryDate.getTime()
+  };
+};
+
 // Setup nodemailer transporter
 const transporter = nodemailer.createTransport({
   service: 'gmail',
@@ -19,6 +41,9 @@ const transporter = nodemailer.createTransport({
 // Create a new order
 const createOrder = async (req, res) => {
   try {
+    console.log('=== ORDER CREATION REQUEST ===');
+    console.log('Request body items:', JSON.stringify(req.body.items, null, 2));
+    
     const {
       customerName,
       email,
@@ -56,7 +81,7 @@ const createOrder = async (req, res) => {
       });
     }
 
-    // Validate each item has required fields
+    // Validate each item has required fields and clean the data
     for (let i = 0; i < items.length; i++) {
       const item = items[i];
       const itemRequiredFields = ['name', 'price', 'quantity'];
@@ -66,6 +91,59 @@ const createOrder = async (req, res) => {
         return res.status(400).json({ 
           success: false, 
           message: `Item ${i + 1} is missing required fields: ${missingItemFields.join(', ')}` 
+        });
+      }
+      
+      // Clean the item data to only include necessary fields
+      items[i] = {
+        productId: item.productId || null,
+        name: item.name,
+        price: Number(item.price),
+        quantity: Number(item.quantity),
+        image: item.image || null
+      };
+    }
+    
+    console.log('Cleaned items:', JSON.stringify(items, null, 2));
+
+    // Process scheduled delivery time if provided
+    let processedScheduledDelivery = null;
+    if (scheduledDelivery) {
+      try {
+        // Ensure the scheduled delivery is a valid date
+        const deliveryDate = new Date(scheduledDelivery);
+        if (isNaN(deliveryDate.getTime())) {
+          return res.status(400).json({ 
+            success: false, 
+            message: 'Invalid scheduled delivery date format.' 
+          });
+        }
+        
+        // Validate that the delivery date is at least 5 days in the future
+        const minDeliveryDate = new Date();
+        minDeliveryDate.setDate(minDeliveryDate.getDate() + 5);
+        
+        if (deliveryDate < minDeliveryDate) {
+          return res.status(400).json({ 
+            success: false, 
+            message: 'Scheduled delivery must be at least 5 days in the future.' 
+          });
+        }
+        
+        // Validate that the delivery time is within business hours (9 AM to 9 PM)
+        const deliveryTime = deliveryDate.getHours();
+        if (deliveryTime < 9 || deliveryTime > 21) {
+          return res.status(400).json({ 
+            success: false, 
+            message: 'Scheduled delivery time must be between 9:00 AM and 9:00 PM.' 
+          });
+        }
+        
+        processedScheduledDelivery = deliveryDate;
+      } catch (error) {
+        return res.status(400).json({ 
+          success: false, 
+          message: 'Invalid scheduled delivery date/time format.' 
         });
       }
     }
@@ -84,7 +162,7 @@ const createOrder = async (req, res) => {
       sellerToken,
       transactionId,
       couponCode,
-      scheduledDelivery, // NEW: Save scheduled delivery
+      scheduledDelivery: processedScheduledDelivery, // Processed scheduled delivery
       addOns,           // NEW: Save add-ons
     });
 
@@ -109,13 +187,18 @@ const createOrder = async (req, res) => {
 
     for (const item of items) {
       if (item.productId) {
-        const product = await Product.findById(item.productId);
-        if (product) {
-          product.stock = Math.max(0, (product.stock || 0) - (item.quantity || 1));
-          if (product.stock === 0) {
-            product.inStock = false;
+        try {
+          const product = await Product.findById(item.productId);
+          if (product) {
+            product.stock = Math.max(0, (product.stock || 0) - (item.quantity || 1));
+            if (product.stock === 0) {
+              product.inStock = false;
+            }
+            await product.save();
           }
-          await product.save();
+        } catch (productError) {
+          console.error(`Error updating stock for product ${item.productId}:`, productError);
+          // Continue with other products even if one fails
         }
       }
     }
@@ -126,10 +209,16 @@ const createOrder = async (req, res) => {
     // Send the redesigned order confirmation email
     sendOrderConfirmationEmail(savedOrder);
     
+    // Format the response with additional scheduled delivery info
+    const orderResponse = {
+      ...savedOrder.toObject(),
+      scheduledDeliveryFormatted: formatScheduledDelivery(savedOrder.scheduledDelivery)
+    };
+
     res.status(201).json({ 
       success: true, 
       message: 'Order created successfully!', 
-      order: savedOrder,
+      order: orderResponse,
       commission: seller ? { amount: commission, sellerName: seller.businessName } : null
     });
   } catch (error) {
@@ -286,7 +375,14 @@ const getOrdersByEmail = async (req, res) => {
       return res.status(400).json({ success: false, message: 'Email query parameter is required.' });
     }
     const orders = await Order.find({ email: { $regex: new RegExp(`^${userEmail}$`, 'i') } }).sort({ createdAt: -1 });
-    res.status(200).json({ success: true, orders });
+    
+    // Format orders with scheduled delivery information
+    const formattedOrders = orders.map(order => ({
+      ...order.toObject(),
+      scheduledDeliveryFormatted: formatScheduledDelivery(order.scheduledDelivery)
+    }));
+    
+    res.status(200).json({ success: true, orders: formattedOrders });
   } catch (error) {
     console.error('Error fetching orders:', error);
     res.status(500).json({ success: false, message: 'Failed to fetch orders.', error: error.message });
@@ -299,7 +395,14 @@ const getOrderById = async (req, res) => {
     if (!order) {
       return res.status(404).json({ success: false, message: 'Order not found.' });
     }
-    res.status(200).json({ success: true, order });
+    
+    // Format order with scheduled delivery information
+    const formattedOrder = {
+      ...order.toObject(),
+      scheduledDeliveryFormatted: formatScheduledDelivery(order.scheduledDelivery)
+    };
+    
+    res.status(200).json({ success: true, order: formattedOrder });
   } catch (error) {
     console.error('Error fetching order by ID:', error);
     res.status(500).json({ success: false, message: 'Failed to fetch order.', error: error.message });
@@ -380,4 +483,5 @@ module.exports = {
   getOrdersByEmail,
   getOrderById,
   sendOrderStatusUpdateEmail,
+  formatScheduledDelivery,
 };

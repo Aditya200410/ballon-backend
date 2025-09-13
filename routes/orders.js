@@ -41,7 +41,17 @@ const writeOrders = (orders) => {
 router.get('/json', authenticateToken, isAdmin, async (req, res) => {
   try {
     const orders = await Order.find().sort({ createdAt: -1 });
-    res.json({ success: true, orders });
+    
+    // Import the formatting function from orderController
+    const { formatScheduledDelivery } = require('../controllers/orderController');
+    
+    // Format orders with scheduled delivery information
+    const formattedOrders = orders.map(order => ({
+      ...order.toObject(),
+      scheduledDeliveryFormatted: formatScheduledDelivery(order.scheduledDelivery)
+    }));
+    
+    res.json({ success: true, orders: formattedOrders });
   } catch (error) {
     res.status(500).json({ success: false, message: 'Failed to fetch orders from MongoDB', error: error.message });
   }
