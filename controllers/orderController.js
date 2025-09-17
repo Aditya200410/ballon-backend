@@ -266,7 +266,7 @@ async function sendOrderConfirmationEmail(order) {
   const addressHtml = `
     <p style="margin: 0; line-height: 1.6;">
       ${address.street || ''}<br/>
-      ${address.city || ''}, ${address.state || ''} - ${address.pincode || ''}<br/>
+      ${address.pincode || ''}<br/>
       ${address.country || ''}
       ${mapLink}
     </p>
@@ -347,7 +347,7 @@ async function sendOrderConfirmationEmail(order) {
   `;
 
   // Plain text version
-  const textBody = `Hey ${customerName},\n\nWoohoo! Your Decoryy order is confirmed! Here are the details:\n\nOrder ID: #${_id}\n\nItems:\n${items.map(item => `- ${item.name} x${item.quantity} (₹${item.price.toFixed(2)})`).join('\n')}\n\n${addOns && addOns.length > 0 ? 'Add-Ons:\n' + addOns.map(a => `- ${a.name} (₹${a.price.toFixed(2)})`).join('\n') + '\n' : ''}Total: ₹${totalAmount.toFixed(2)}\n\nShipping Address:\n${address.street || ''}\n${address.city || ''}, ${address.state || ''} - ${address.pincode || ''}\n${address.country || ''}\n\n${scheduledDelivery ? 'Scheduled For: ' + new Date(scheduledDelivery).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' }) + '\n' : ''}\nThanks for choosing us!\nThe Decoryy Team 🥳`;
+  const textBody = `Hey ${customerName},\n\nWoohoo! Your Decoryy order is confirmed! Here are the details:\n\nOrder ID: #${_id}\n\nItems:\n${items.map(item => `- ${item.name} x${item.quantity} (₹${item.price.toFixed(2)})`).join('\n')}\n\n${addOns && addOns.length > 0 ? 'Add-Ons:\n' + addOns.map(a => `- ${a.name} (₹${a.price.toFixed(2)})`).join('\n') + '\n' : ''}Total: ₹${totalAmount.toFixed(2)}\n\nShipping Address:\n${address.street || ''}\n${address.pincode || ''}\n${address.country || ''}\n\n${scheduledDelivery ? 'Scheduled For: ' + new Date(scheduledDelivery).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' }) + '\n' : ''}\nThanks for choosing us!\nThe Decoryy Team 🥳`;
 
   try {
     await transporter.sendMail({

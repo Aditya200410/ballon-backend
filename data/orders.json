@@ -335,5 +335,40 @@
     "updatedAt": "2025-09-12T14:02:38.127Z",
     "__v": 0,
     "id": "68c427fe255689aacbd9108a"
+  },
+  {
+    "customerName": "aditya Kumar",
+    "email": "adityakumar098k@gmail.com",
+    "phone": "9114703231",
+    "address": {
+      "street": "Burla",
+      "city": "Sambalpur",
+      "state": "Odisha",
+      "pincode": "768018",
+      "country": "India"
+    },
+    "scheduledDelivery": null,
+    "items": [
+      {
+        "productId": "68ab35517d6a677888a89687",
+        "name": "Wedding Backdrop Curtain with LED Lights",
+        "price": 3499,
+        "quantity": 1,
+        "image": "https://res.cloudinary.com/dbwizqyzg/image/upload/v1756209228/pawnshop-products/x3atrqj6svogjy6axya4.png"
+      }
+    ],
+    "addOns": [],
+    "totalAmount": 3499,
+    "paymentMethod": "cod",
+    "orderStatus": "processing",
+    "paymentStatus": "pending",
+    "upfrontAmount": 0,
+    "remainingAmount": 3499,
+    "commission": 0,
+    "_id": "68c58dafccc08137eb4ef334",
+    "createdAt": "2025-09-13T15:28:47.065Z",
+    "updatedAt": "2025-09-13T15:28:47.065Z",
+    "__v": 0,
+    "id": "68c58dafccc08137eb4ef334"
   }
 ]
