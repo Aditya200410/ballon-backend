@@ -370,5 +370,38 @@
     "updatedAt": "2025-09-13T15:28:47.065Z",
     "__v": 0,
     "id": "68c58dafccc08137eb4ef334"
+  },
+  {
+    "customerName": "aditya Kumar",
+    "email": "adityakumar098k@gmail.com",
+    "phone": "919114703231",
+    "address": {
+      "street": "Burla",
+      "pincode": "768018",
+      "country": "India"
+    },
+    "scheduledDelivery": "2025-09-24T11:47:00.000Z",
+    "items": [
+      {
+        "productId": "68ab35517d6a677888a89689",
+        "name": "Golden Happy Birthday Banner",
+        "price": 299,
+        "quantity": 1,
+        "image": "https://res.cloudinary.com/demo/image/upload/birthday-banner.jpg"
+      }
+    ],
+    "addOns": [],
+    "totalAmount": 399,
+    "paymentMethod": "cod",
+    "orderStatus": "processing",
+    "paymentStatus": "pending",
+    "upfrontAmount": 0,
+    "remainingAmount": 399,
+    "commission": 0,
+    "_id": "68cb1dccef07fff6a68d7e8a",
+    "createdAt": "2025-09-17T20:45:00.245Z",
+    "updatedAt": "2025-09-17T20:45:00.245Z",
+    "__v": 0,
+    "id": "68cb1dccef07fff6a68d7e8a"
   }
 ]
