@@ -610,6 +610,38 @@ exports.deleteSeller = async (req, res) => {
 exports.updateSellerProfile = async (req, res) => {
   try {
     const { id } = req.params;
+    
+    // Process uploaded images
+    let images = [];
+    if (req.files && req.files.length > 0) {
+      images = req.files.map(file => ({
+        public_id: file.filename,
+        url: file.path,
+        alt: 'Business image'
+      }));
+    }
+
+    // Process profile image if uploaded
+    let profileImage = null;
+    if (req.file) {
+      profileImage = {
+        public_id: req.file.filename,
+        url: req.file.path,
+        alt: 'Profile image'
+      };
+    }
+
+    // Process array fields that come as arrays from frontend
+    const processArrayField = (fieldName) => {
+      if (req.body[`${fieldName}[]`]) {
+        return Array.isArray(req.body[`${fieldName}[]`]) ? req.body[`${fieldName}[]`] : [req.body[`${fieldName}[]`]];
+      }
+      if (req.body[fieldName]) {
+        return Array.isArray(req.body[fieldName]) ? req.body[fieldName] : [req.body[fieldName]];
+      }
+      return [];
+    };
+
     const updates = {
       businessName: req.body.businessName,
       phone: req.body.phone,
@@ -619,17 +651,30 @@ exports.updateSellerProfile = async (req, res) => {
       startingPrice: req.body.startingPrice,
       description: req.body.description,
       maxPersonsAllowed: req.body.maxPersonsAllowed,
-      amenity: req.body.amenity,
+      amenity: processArrayField('amenity'),
       totalHalls: req.body.totalHalls,
       enquiryDetails: req.body.enquiryDetails,
       bookingOpens: req.body.bookingOpens,
       workingTimes: req.body.workingTimes,
       workingDates: req.body.workingDates,
-      foodType: req.body.foodType,
+      foodType: processArrayField('foodType'),
       roomsAvailable: req.body.roomsAvailable,
       bookingPolicy: req.body.bookingPolicy,
-      additionalFeatures: req.body.additionalFeatures
+      additionalFeatures: processArrayField('additionalFeatures'),
+      verified: req.body.verified === 'true' || req.body.verified === true,
+      approved: req.body.approved === 'true' || req.body.approved === true,
+      blocked: req.body.blocked === 'true' || req.body.blocked === true
     };
+
+    // Add images if uploaded
+    if (images.length > 0) {
+      updates.images = images;
+    }
+
+    // Add profile image if uploaded
+    if (profileImage) {
+      updates.profileImage = profileImage;
+    }
 
     // Remove undefined values
     Object.keys(updates).forEach(key => {
@@ -637,6 +682,11 @@ exports.updateSellerProfile = async (req, res) => {
         delete updates[key];
       }
     });
+
+    console.log('Updating seller with ID:', id);
+    console.log('Updates object:', updates);
+    console.log('Files received:', req.files ? req.files.length : 0);
+    console.log('Profile file received:', !!req.file);
 
     const seller = await Seller.findByIdAndUpdate(
       id,
@@ -651,7 +701,19 @@ exports.updateSellerProfile = async (req, res) => {
     res.json({ success: true, seller });
   } catch (error) {
     console.error('Update seller profile error:', error);
-    res.status(500).json({ success: false, message: 'Error updating seller profile' });
+    console.error('Error details:', error.message);
+    console.error('Validation errors:', error.errors);
+    
+    if (error.name === 'ValidationError') {
+      const validationErrors = Object.values(error.errors).map(err => err.message);
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Validation error', 
+        errors: validationErrors 
+      });
+    }
+    
+    res.status(500).json({ success: false, message: 'Error updating seller profile', error: error.message });
   }
 };
 

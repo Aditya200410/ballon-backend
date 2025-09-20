@@ -48,7 +48,7 @@ const profileStorage = hasCloudinaryCredentials ? new CloudinaryStorage({
 const uploadMultipleImages = multer({
   storage: storage,
   limits: {
-    fileSize: 5 * 1024 * 1024, // 5MB limit
+    fileSize: 20 * 1024 * 1024, // 20MB limit
     files: 10 // Maximum 10 images
   },
   fileFilter: (req, file, cb) => {
@@ -65,7 +65,7 @@ const uploadMultipleImages = multer({
 const uploadProfileImage = multer({
   storage: profileStorage,
   limits: {
-    fileSize: 2 * 1024 * 1024, // 2MB limit
+    fileSize: 20 * 1024 * 1024, // 20MB limit
     files: 1 // Only 1 file
   },
   fileFilter: (req, file, cb) => {
@@ -91,7 +91,7 @@ const handleMultipleImages = (req, res, next) => {
       if (err.code === 'LIMIT_FILE_SIZE') {
         return res.status(400).json({
           success: false,
-          message: 'File too large. Maximum size is 5MB.'
+          message: 'File too large. Maximum size is 20MB.'
         });
       }
       if (err.code === 'LIMIT_FILE_COUNT') {
@@ -127,7 +127,7 @@ const handleProfileImage = (req, res, next) => {
       if (err.code === 'LIMIT_FILE_SIZE') {
         return res.status(400).json({
           success: false,
-          message: 'File too large. Maximum size is 2MB.'
+          message: 'File too large. Maximum size is 20MB.'
         });
       }
       return res.status(400).json({

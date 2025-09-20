@@ -45,5 +45,7 @@ router.patch('/:id/approve', auth, sellerAuthController.setApprovalStatus);
 // Update seller profile (admin only)
 router.put('/:id/profile', auth, sellerAuthController.updateSellerProfile);
 
+// Update seller (admin only) - general update endpoint
+router.put('/:id', auth, handleMultipleImages, sellerAuthController.updateSellerProfile);
 
 module.exports = router; 
