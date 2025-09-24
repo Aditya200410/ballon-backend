@@ -37,6 +37,12 @@ router.put('/update-unique-fields', sellerAuthController.updateUniqueFields);
 // Delete seller (admin only)
 router.delete('/:id', auth, sellerAuthController.deleteSeller);
 
+// Delete image (admin only)
+router.delete('/:sellerId/image/:imageId', auth, sellerAuthController.deleteImageAdmin);
+
+// Delete profile image (admin only)
+router.delete('/:sellerId/profile-image', auth, sellerAuthController.deleteProfileImageAdmin);
+
 // Block/unblock seller (admin only)
 router.patch('/:id/block', auth, sellerAuthController.setBlockedStatus);
 router.get('/:id', sellerAuthController.getSellerById);

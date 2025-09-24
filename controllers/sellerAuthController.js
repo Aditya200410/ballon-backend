@@ -363,6 +363,106 @@ exports.deleteImage = async (req, res) => {
   }
 };
 
+// Delete image (admin only)
+exports.deleteImageAdmin = async (req, res) => {
+  try {
+    const { sellerId, imageId } = req.params;
+    const { cloudinary } = require('../middleware/sellerUpload');
+
+    // Find the seller by ID
+    const seller = await Seller.findById(sellerId);
+    if (!seller) {
+      return res.status(404).json({
+        success: false,
+        message: 'Seller not found'
+      });
+    }
+
+    // Find the image in the seller's images array
+    const image = seller.images.id(imageId);
+    if (!image) {
+      return res.status(404).json({
+        success: false,
+        message: 'Image not found'
+      });
+    }
+
+    // Delete from Cloudinary if available
+    if (cloudinary) {
+      try {
+        await cloudinary.uploader.destroy(image.public_id);
+      } catch (cloudinaryError) {
+        console.error('Cloudinary delete error:', cloudinaryError);
+        // Continue with database deletion even if Cloudinary fails
+      }
+    }
+
+    // Remove from database
+    seller.images.pull(imageId);
+    await seller.save();
+
+    res.json({
+      success: true,
+      message: 'Image deleted successfully'
+    });
+  } catch (error) {
+    console.error('Delete image error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error deleting image'
+    });
+  }
+};
+
+// Delete profile image (admin only)
+exports.deleteProfileImageAdmin = async (req, res) => {
+  try {
+    const { sellerId } = req.params;
+    const { cloudinary } = require('../middleware/sellerUpload');
+
+    // Find the seller by ID
+    const seller = await Seller.findById(sellerId);
+    if (!seller) {
+      return res.status(404).json({
+        success: false,
+        message: 'Seller not found'
+      });
+    }
+
+    if (!seller.profileImage) {
+      return res.status(404).json({
+        success: false,
+        message: 'Profile image not found'
+      });
+    }
+
+    // Delete from Cloudinary if available
+    if (cloudinary && seller.profileImage.public_id) {
+      try {
+        await cloudinary.uploader.destroy(seller.profileImage.public_id);
+      } catch (cloudinaryError) {
+        console.error('Cloudinary delete error:', cloudinaryError);
+        // Continue with database deletion even if Cloudinary fails
+      }
+    }
+
+    // Remove from database
+    seller.profileImage = null;
+    await seller.save();
+
+    res.json({
+      success: true,
+      message: 'Profile image deleted successfully'
+    });
+  } catch (error) {
+    console.error('Delete profile image error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error deleting profile image'
+    });
+  }
+};
+
 // Get all sellers (for admin panel)
 exports.getAllSellers = async (req, res) => {
   try {
