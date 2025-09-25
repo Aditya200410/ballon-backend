@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const Blog = require('../models/Blog');
 const { auth } = require('../middleware/auth');
+const { handleBlogImageUpload } = require('../middleware/blogUpload');
 
 // GET /api/blog - Get all blogs with pagination and filtering
 router.get('/', async (req, res) => {
@@ -183,9 +184,14 @@ router.get('/admin/:id', auth, async (req, res) => {
 });
 
 // POST /api/blog - Create new blog (Admin only)
-router.post('/', auth, async (req, res) => {
+router.post('/', auth, handleBlogImageUpload, async (req, res) => {
   try {
     const blogData = req.body;
+    
+    // Handle uploaded image
+    if (req.file) {
+      blogData.featuredImage = req.file.path; // Cloudinary URL
+    }
     
     // Set publishedAt if isPublished is true
     if (blogData.isPublished && !blogData.publishedAt) {
@@ -216,9 +222,14 @@ router.post('/', auth, async (req, res) => {
 });
 
 // PUT /api/blog/:id - Update blog (Admin only)
-router.put('/:id', auth, async (req, res) => {
+router.put('/:id', auth, handleBlogImageUpload, async (req, res) => {
   try {
     const blogData = req.body;
+    
+    // Handle uploaded image
+    if (req.file) {
+      blogData.featuredImage = req.file.path; // Cloudinary URL
+    }
     
     // Set publishedAt if isPublished is being set to true
     if (blogData.isPublished && !blogData.publishedAt) {
