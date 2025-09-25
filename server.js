@@ -22,6 +22,7 @@ const crypto = require('crypto');
 const settingsController = require('./controllers/settingsController');
 const app = express();
 const subCategoryRoutes = require('./routes/subCategoryRoutes'); // Adjust path if needed
+const blogRoutes = require('./routes/blog');
 
 
 // Generate a random JWT secret for seller authentication if not provided
@@ -75,8 +76,20 @@ app.use((req, res, next) => {
   }
 });
 
-app.use(express.json());
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ limit: '50mb', extended: true }));
 app.use(cookieParser());
+
+// Error handling for payload too large
+app.use((err, req, res, next) => {
+  if (err.type === 'entity.too.large') {
+    return res.status(413).json({
+      success: false,
+      message: 'Payload too large. Please reduce the size of your request.'
+    });
+  }
+  next(err);
+});
 
 // Ensure data directories exist
 const dataDir = path.join(__dirname, 'data');
@@ -143,6 +156,7 @@ app.use('/api/reviews', require('./routes/reviews'));
 app.use('/api/settings', require('./routes/settings'));
 app.use('/api/msg91', require('./routes/msg91'));
 app.use('/api/pin-code-service-fees', require('./routes/pinCodeServiceFee'));
+app.use('/api/blog', blogRoutes);
 // This handles requests like GET /api/categories/:id/subcategories
 app.use('/api/categories', subCategoryRoutes); 
 

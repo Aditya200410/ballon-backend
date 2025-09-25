@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const Category = require('../models/cate'); // Adjust path if necessary
+const Category = require('../models/Category'); // Adjust path if necessary
 const SubCategory = require('../models/SubCategory'); // The new model
 const { handleSubCategoryImage } = require('../middleware/subCategoryUpload');
 
