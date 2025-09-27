@@ -37,7 +37,8 @@ const allowedOrigins = [
   'http://localhost:5174',
 'https://www.decoryy.com',
   'https://ballon-frontend.vercel.app',
-  'https://ballon-admin-beta.vercel.app'
+  'https://ballon-admin-beta.vercel.app',
+  'https://admin.decoryy.com'
 ];
 
 
