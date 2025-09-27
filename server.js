@@ -35,6 +35,8 @@ if (!process.env.JWT_SECRET_SELLER) {
 const allowedOrigins = [
   'http://localhost:5173',
   'http://localhost:5174',
+
+  'http://localhost:5175', // Backend port (for testing)
 'https://www.decoryy.com',
   'https://ballon-frontend.vercel.app',
   'https://ballon-admin-beta.vercel.app',
@@ -45,11 +47,17 @@ const allowedOrigins = [
 
 app.use(cors({
   origin: function (origin, callback) {
-    if (!origin) return callback(null, true);
-    if (allowedOrigins.includes(origin) ) {
+    console.log('CORS request from origin:', origin);
+    if (!origin) {
+      console.log('No origin header, allowing request');
+      return callback(null, true);
+    }
+    if (allowedOrigins.includes(origin)) {
+      console.log('Origin allowed:', origin);
       callback(null, true);
     } else {
       console.log('CORS blocked origin:', origin);
+      console.log('Allowed origins:', allowedOrigins);
       callback(new Error('Not allowed by CORS'));
     }
   },
