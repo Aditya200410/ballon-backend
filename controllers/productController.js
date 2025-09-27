@@ -78,15 +78,36 @@ const createProductWithFiles = async (req, res) => {
     const productData = req.body;
     
     const requiredFields = [
-      "name", "material",
-      "category",// NEW: Added subCategory to validation
-       "price", "regularPrice"
+      "name", "material", "description", "size", "colour", 
+      "category", "weight", "utility", "care", "price", "regularPrice"
     ];
 
     const missingFields = requiredFields.filter(field => !productData[field]);
 
     if (missingFields.length > 0) {
       return res.status(400).json({ error: `Missing required fields: ${missingFields.join(', ')}` });
+    }
+
+    // Validate price values
+    const price = parseFloat(productData.price);
+    const regularPrice = parseFloat(productData.regularPrice);
+    
+    if (isNaN(price) || price < 0) {
+      return res.status(400).json({ error: 'Invalid price value' });
+    }
+    
+    if (isNaN(regularPrice) || regularPrice < 0) {
+      return res.status(400).json({ error: 'Invalid regular price value' });
+    }
+    
+    if (price > regularPrice) {
+      return res.status(400).json({ error: 'Price cannot be greater than regular price' });
+    }
+
+    // Validate stock value
+    const stock = Number(productData.stock);
+    if (isNaN(stock) || stock < 0) {
+      return res.status(400).json({ error: 'Invalid stock value' });
     }
 
     const imagePaths = [];

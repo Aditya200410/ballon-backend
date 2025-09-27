@@ -29,10 +29,42 @@ const createReview = async (req, res) => {
       });
     }
 
+    // Validate user name
+    if (userName.trim().length < 2 || userName.trim().length > 100) {
+      return res.status(400).json({ 
+        message: "User name must be between 2 and 100 characters" 
+      });
+    }
+
+    // Validate review title and description
+    if (reviewTitle.trim().length < 5 || reviewTitle.trim().length > 100) {
+      return res.status(400).json({ 
+        message: "Review title must be between 5 and 100 characters" 
+      });
+    }
+
+    if (reviewDescription.trim().length < 10 || reviewDescription.trim().length > 1000) {
+      return res.status(400).json({ 
+        message: "Review description must be between 10 and 1000 characters" 
+      });
+    }
+
     // Check if product exists
     const product = await Product.findById(productId);
     if (!product) {
       return res.status(404).json({ message: "Product not found" });
+    }
+
+    // Check if user already reviewed this product
+    const existingReview = await Review.findOne({ 
+      userEmail: userEmail.toLowerCase(), 
+      product: productId 
+    });
+    
+    if (existingReview) {
+      return res.status(400).json({ 
+        message: "You have already reviewed this product. You can update your existing review instead." 
+      });
     }
 
     // Create the review
@@ -143,6 +175,19 @@ const updateReview = async (req, res) => {
     if (stars < 1 || stars > 5) {
       return res.status(400).json({ 
         message: "Stars must be between 1 and 5" 
+      });
+    }
+
+    // Validate review title and description
+    if (reviewTitle.trim().length < 5 || reviewTitle.trim().length > 100) {
+      return res.status(400).json({ 
+        message: "Review title must be between 5 and 100 characters" 
+      });
+    }
+
+    if (reviewDescription.trim().length < 10 || reviewDescription.trim().length > 1000) {
+      return res.status(400).json({ 
+        message: "Review description must be between 10 and 1000 characters" 
       });
     }
 
