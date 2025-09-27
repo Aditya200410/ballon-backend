@@ -106,7 +106,7 @@ const createProductWithFiles = async (req, res) => {
       size: productData.size,
       colour: productData.colour,
       category: productData.category,
-      subCategory: productData.subCategory, // NEW: Added subCategory to product creation
+      subCategory: productData.subCategory && productData.subCategory.trim() !== '' ? productData.subCategory : undefined, // Handle empty string
       weight: productData.weight,
       utility: productData.utility,
       care: productData.care,
@@ -171,7 +171,7 @@ const updateProductWithFiles = async (req, res) => {
       size: productData.size || existingProduct.size,
       colour: productData.colour || existingProduct.colour,
       category: productData.category || existingProduct.category,
-      subCategory: productData.subCategory || existingProduct.subCategory, // NEW: Added subCategory to update logic
+      subCategory: productData.subCategory && productData.subCategory.trim() !== '' ? productData.subCategory : (productData.subCategory === '' ? undefined : existingProduct.subCategory), // Handle empty string
       weight: productData.weight || existingProduct.weight,
       utility: productData.utility || existingProduct.utility,
       care: productData.care || existingProduct.care,
