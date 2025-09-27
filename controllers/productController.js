@@ -68,10 +68,17 @@ const getProduct = async (req, res) => {
 // Create new product with file upload
 const createProductWithFiles = async (req, res) => {
   try {
-    console.log('Body data:', req.body);
+    console.log('=== Product Creation Request ===');
+    console.log('Request body:', req.body);
+    console.log('Request files:', req.files);
+    console.log('Request headers:', req.headers);
     
     if (!req.files || !req.files.mainImage) {
-      return res.status(400).json({ error: 'Main image is required.' });
+      console.error('Main image missing - files:', req.files);
+      return res.status(400).json({ 
+        error: 'Main image is required.',
+        message: 'Please upload a main image for the product'
+      });
     }
 
     const files = req.files;
@@ -120,14 +127,15 @@ const createProductWithFiles = async (req, res) => {
       }
     }
 
-    const newProduct = new Product({
+    console.log('=== Creating Product Object ===');
+    const productObject = {
       name: productData.name,
       material: productData.material,
       description: productData.description,
       size: productData.size,
       colour: productData.colour,
       category: productData.category,
-      subCategory: productData.subCategory && productData.subCategory.trim() !== '' ? productData.subCategory : undefined, // Handle empty string
+      subCategory: productData.subCategory && productData.subCategory.trim() !== '' ? productData.subCategory : undefined,
       weight: productData.weight,
       utility: productData.utility,
       care: productData.care,
@@ -141,19 +149,58 @@ const createProductWithFiles = async (req, res) => {
       isMostLoved: productData.isMostLoved === 'true',
       codAvailable: productData.codAvailable !== 'false',
       stock: Number(productData.stock) || 0
-    });
+    };
+    
+    console.log('Product object to save:', productObject);
+    
+    const newProduct = new Product(productObject);
+    console.log('Product instance created, attempting to save...');
     
     const savedProduct = await newProduct.save();
+    console.log('Product saved successfully:', savedProduct._id);
     
     res.status(201).json({ 
       message: "Product created successfully", 
       product: savedProduct,
     });
   } catch (error) {
-    console.error('Error creating product:', error);
+    console.error('=== Error creating product ===');
+    console.error('Error type:', error.name);
+    console.error('Error message:', error.message);
+    console.error('Error stack:', error.stack);
+    console.error('Request body:', req.body);
+    console.error('Request files:', req.files);
+    
+    // Handle specific error types
+    if (error.name === 'ValidationError') {
+      const validationErrors = Object.values(error.errors).map(err => err.message);
+      return res.status(400).json({ 
+        message: "Validation Error", 
+        error: "Please check the following fields: " + validationErrors.join(', '),
+        details: validationErrors
+      });
+    }
+    
+    if (error.name === 'CastError') {
+      return res.status(400).json({ 
+        message: "Invalid Data Type", 
+        error: `Invalid value for field: ${error.path}`,
+        details: error.message
+      });
+    }
+    
+    if (error.code === 11000) {
+      return res.status(400).json({ 
+        message: "Duplicate Entry", 
+        error: "A product with this information already exists",
+        details: error.message
+      });
+    }
+    
     res.status(500).json({ 
       message: "Error creating product", 
       error: error.message,
+      details: process.env.NODE_ENV === 'development' ? error.stack : undefined
     });
   }
 };
