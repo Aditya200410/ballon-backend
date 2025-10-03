@@ -1,15 +1,54 @@
 const Product = require('../models/Product');
+const Category = require('../models/Category');
 const mongoose = require('mongoose');
 const fs = require('fs').promises;
 const path = require('path');
 
-// Get all products
+// Get all products (supports optional query filters: category (name or id), subCategory (name or id), limit)
 const getAllProducts = async (req, res) => {
   try {
-    // UPDATED: Populate category and subCategory to return their names
-    const products = await Product.find()
-      .populate('category', 'name')
-      .populate('subCategory', 'name');
+    const { category, subCategory, limit } = req.query;
+
+    const query = {};
+
+    // If category provided, try to handle both ObjectId and name (case-insensitive)
+    if (category) {
+      if (mongoose.Types.ObjectId.isValid(category)) {
+        query.category = category;
+      } else {
+        const catDoc = await Category.findOne({ name: new RegExp(`^${category}$`, 'i') });
+        if (catDoc) query.category = catDoc._id;
+        else {
+          // If no matching category by name, try slug match
+          const catBySlug = await Category.findOne({ slug: category.toLowerCase() });
+          if (catBySlug) query.category = catBySlug._id;
+        }
+      }
+    }
+
+    // If subCategory provided, support both id and name. subCategory is stored as ObjectId in Product.
+    if (subCategory) {
+      if (mongoose.Types.ObjectId.isValid(subCategory)) {
+        query.subCategory = subCategory;
+      } else {
+        // try to find SubCategory by name — using SubCategory model if available
+        // Fallback: attempt to match subCategory name stored as string (in case of legacy data)
+        query['subCategory.name'] = new RegExp(`^${subCategory}$`, 'i');
+      }
+    }
+
+    let dbQuery = Product.find(query)
+      .populate('category', 'name slug')
+      .populate('subCategory', 'name slug')
+      .sort({ date: -1 });
+
+    if (limit && !isNaN(parseInt(limit))) {
+      dbQuery = dbQuery.limit(parseInt(limit));
+    }
+
+    const products = await dbQuery.exec();
+
+    // Return in the older shape (array) so frontend code that expects array works
     res.json(products);
   } catch (error) {
     console.error('Error fetching products:', error);
