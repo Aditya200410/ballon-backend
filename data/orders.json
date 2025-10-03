@@ -403,5 +403,38 @@
     "updatedAt": "2025-09-17T20:45:00.245Z",
     "__v": 0,
     "id": "68cb1dccef07fff6a68d7e8a"
+  },
+  {
+    "customerName": "the one who know infinity",
+    "email": "lightyagami98k@gmail.com",
+    "phone": "09114703231",
+    "address": {
+      "street": "Burla",
+      "pincode": "768018",
+      "country": "India"
+    },
+    "scheduledDelivery": "2025-10-14T08:22:00.000Z",
+    "items": [
+      {
+        "productId": "68d809a48a4f31698021d1f8",
+        "name": "Baby Welcome",
+        "price": 999,
+        "quantity": 1,
+        "image": "https://res.cloudinary.com/drztexsbw/image/upload/v1758988707/pawnshop-products/pzt8zgogll5sasrskrla.webp"
+      }
+    ],
+    "addOns": [],
+    "totalAmount": 1099,
+    "paymentMethod": "cod",
+    "orderStatus": "processing",
+    "paymentStatus": "pending",
+    "upfrontAmount": 0,
+    "remainingAmount": 1099,
+    "commission": 0,
+    "_id": "68e005b59bf439caa8e10bf6",
+    "createdAt": "2025-10-03T17:19:49.751Z",
+    "updatedAt": "2025-10-03T17:19:49.751Z",
+    "__v": 0,
+    "id": "68e005b59bf439caa8e10bf6"
   }
 ]

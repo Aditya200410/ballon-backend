@@ -26,8 +26,9 @@ const storage = new CloudinaryStorage({
       { fetch_format: 'auto' }
     ],
     resource_type: 'auto',
-    use_filename: true,
-    unique_filename: false,
+    // Let Cloudinary generate a unique public_id for each upload to avoid collisions
+    use_filename: false,
+    unique_filename: true,
     overwrite: false
   }
 });
@@ -135,8 +136,8 @@ const createCarouselItemWithFiles = async (req, res) => {
     if (missingFields.length > 0) {
       return res.status(400).json({ error: `Missing required fields: ${missingFields.join(', ')}` });
     }
-    // Process uploaded file
-    const imageUrl = file.path;
+  // Process uploaded file: prefer secure_url/path returned by Cloudinary
+  const imageUrl = (file && (file.secure_url || file.path || file.url)) || '';
     // Get current max order
     const maxOrderItem = await HeroCarousel.findOne().sort('-order');
     const newOrder = maxOrderItem ? maxOrderItem.order + 1 : 0;
@@ -203,9 +204,10 @@ const updateCarouselItemWithFiles = async (req, res) => {
     }
 
     // Update logic
+    // Prefer newly uploaded cloudinary url if a file was uploaded
     let imageUrl = existingItem.image;
     if (file) {
-      imageUrl = file.path;
+      imageUrl = (file.secure_url || file.path || file.url) || imageUrl;
     }
     const updatedItem = {
       title: (itemData.title || existingItem.title).trim(),
