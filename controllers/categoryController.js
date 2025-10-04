@@ -13,30 +13,40 @@ exports.getAllCategories = async (req, res) => {
 };
 exports.getNestedCategories = async (req, res) => {
     try {
-        // 1. Fetch all main categories and all sub-categories in parallel
-        const [categories, subCategories] = await Promise.all([
-            Category.find({ isActive: true }).sort({ sortOrder: 1 }).lean(),
-            SubCategory.find({ isActive: true }).sort({ sortOrder: 1 }).lean()
-        ]);
+    // 1. Fetch all main categories, sub-categories, and products in parallel
+    const [categories, subCategories, products] = await Promise.all([
+      Category.find({ isActive: true }).sort({ sortOrder: 1 }).lean(),
+      SubCategory.find({ isActive: true }).sort({ sortOrder: 1 }).lean(),
+      require('../models/Product').find({})
+    ]);
 
-        // 2. Create a map for quick lookup of sub-categories by their parent ID
-        const subCategoryMap = {};
-        for (const sub of subCategories) {
-            const parentId = sub.parentCategory.toString();
-            if (!subCategoryMap[parentId]) {
-                subCategoryMap[parentId] = [];
-            }
-            subCategoryMap[parentId].push(sub);
-        }
+    // 2. Create a map for quick lookup of sub-categories by their parent ID
+    const subCategoryMap = {};
+    for (const sub of subCategories) {
+      const parentId = sub.parentCategory.toString();
+      if (!subCategoryMap[parentId]) {
+        subCategoryMap[parentId] = [];
+      }
+      subCategoryMap[parentId].push(sub);
+    }
 
-        // 3. Attach the sub-categories to their parent category
-        const nestedCategories = categories.map(category => ({
-            ...category,
-            // Find matching sub-categories or return an empty array
-            subCategories: subCategoryMap[category._id.toString()] || [] 
-        }));
+    // 3. Count products for each category
+    const productCountMap = {};
+    for (const product of products) {
+      const catId = product.category?.toString();
+      if (catId) {
+        productCountMap[catId] = (productCountMap[catId] || 0) + 1;
+      }
+    }
 
-        res.status(200).json(nestedCategories);
+    // 4. Attach the sub-categories and product count to their parent category
+    const nestedCategories = categories.map(category => ({
+      ...category,
+      subCategories: subCategoryMap[category._id.toString()] || [],
+      productCount: productCountMap[category._id.toString()] || 0
+    }));
+
+    res.status(200).json(nestedCategories);
 
     } catch (error) {
         console.error('Error fetching nested categories:', error);

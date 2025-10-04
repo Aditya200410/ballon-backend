@@ -124,8 +124,8 @@ const createProductWithFiles = async (req, res) => {
     const productData = req.body;
     
     const requiredFields = [
-      "name", "material", "description", "size", "colour", 
-      "category", "weight", "utility", "care", "price", "regularPrice"
+      "name", "material", "size", "colour", 
+      "category", "utility", "care", "price", "regularPrice"
     ];
 
     const missingFields = requiredFields.filter(field => !productData[field]);
@@ -170,12 +170,12 @@ const createProductWithFiles = async (req, res) => {
     const productObject = {
       name: productData.name,
       material: productData.material,
-      description: productData.description,
+    
       size: productData.size,
       colour: productData.colour,
       category: productData.category,
       subCategory: productData.subCategory && productData.subCategory.trim() !== '' ? productData.subCategory : undefined,
-      weight: productData.weight,
+    
       utility: productData.utility,
       care: productData.care,
       price: parseFloat(productData.price),
@@ -274,12 +274,11 @@ const updateProductWithFiles = async (req, res) => {
     const updatedProductData = {
       name: productData.name || existingProduct.name,
       material: productData.material || existingProduct.material,
-      description: productData.description || existingProduct.description,
       size: productData.size || existingProduct.size,
       colour: productData.colour || existingProduct.colour,
       category: productData.category || existingProduct.category,
       subCategory: productData.subCategory && productData.subCategory.trim() !== '' ? productData.subCategory : (productData.subCategory === '' ? undefined : existingProduct.subCategory), // Handle empty string
-      weight: productData.weight || existingProduct.weight,
+   
       utility: productData.utility || existingProduct.utility,
       care: productData.care || existingProduct.care,
       price: productData.price ? parseFloat(productData.price) : existingProduct.price,
