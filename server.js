@@ -158,6 +158,8 @@ app.use('/api/hero-carousel', heroCarouselRoutes);
 app.use('/api/seller', sellerRoutes);
 app.use('/api/coupons', couponRoutes);
 app.use('/api/data-page', require('./routes/dataPage'));
+// Register city routes
+app.use('/api/cities', require('./routes/city'));
 app.use('/api/payment', require('./routes/payment'));
 app.use('/api/withdrawal', require('./routes/withdrawal'));
 app.use('/api/commission', require('./routes/commission'));
