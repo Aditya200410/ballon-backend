@@ -206,4 +206,36 @@ exports.deleteCategory = async (req, res) => {
     console.error('Error in deleteCategory:', error);
     res.status(500).json({ message: 'Error deleting category' });
   }
+};
+
+// Update category order (bulk update)
+exports.updateCategoryOrder = async (req, res) => {
+  try {
+    const { updates } = req.body;
+    
+    if (!Array.isArray(updates)) {
+      return res.status(400).json({ message: 'Updates must be an array' });
+    }
+
+    console.log('Updating category order:', updates);
+
+    // Update all categories in parallel
+    const updatePromises = updates.map(update => 
+      Category.findByIdAndUpdate(
+        update.id,
+        { sortOrder: update.sortOrder },
+        { new: true }
+      )
+    );
+
+    await Promise.all(updatePromises);
+
+    res.json({ 
+      message: 'Category order updated successfully',
+      updatedCount: updates.length
+    });
+  } catch (error) {
+    console.error('Error updating category order:', error);
+    res.status(500).json({ message: 'Error updating category order', error: error.message });
+  }
 }; 
