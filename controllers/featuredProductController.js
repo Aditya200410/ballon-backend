@@ -6,7 +6,8 @@ const path = require('path');
 // Get all featured products
 const getAllFeaturedProducts = async (req, res) => {
   try {
-    const products = await FeaturedProduct.find();
+    // Only fetch products that are in stock
+    const products = await FeaturedProduct.find({ inStock: true });
     res.json({ products: products.map(product => ({
       ...product.toObject(),
       id: product._id

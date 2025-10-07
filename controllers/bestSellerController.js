@@ -6,7 +6,8 @@ const path = require('path');
 // Get all best seller products
 const getAllBestSellers = async (req, res) => {
   try {
-    const products = await BestSeller.find();
+    // Only fetch products that are in stock
+    const products = await BestSeller.find({ inStock: true });
     res.json({ products: products.map(product => ({
       ...product.toObject(),
       id: product._id

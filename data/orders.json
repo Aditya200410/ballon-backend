@@ -436,5 +436,39 @@
     "updatedAt": "2025-10-03T17:19:49.751Z",
     "__v": 0,
     "id": "68e005b59bf439caa8e10bf6"
+  },
+  {
+    "customOrderId": "decorationcelebration1",
+    "customerName": "the one who know infinity",
+    "email": "lightyagami98k@gmail.com",
+    "phone": "09114703231",
+    "address": {
+      "street": "Burla",
+      "pincode": "768018",
+      "country": "India"
+    },
+    "scheduledDelivery": null,
+    "items": [
+      {
+        "productId": "68dbcef0ffaf1ee1882372c1",
+        "name": "Car Decoration",
+        "price": 2199,
+        "quantity": 1,
+        "image": "https://res.cloudinary.com/drztexsbw/image/upload/v1759235823/pawnshop-products/vbmbaznvi8qniu6wokjl.webp"
+      }
+    ],
+    "addOns": [],
+    "totalAmount": 2299,
+    "paymentMethod": "cod",
+    "orderStatus": "processing",
+    "paymentStatus": "pending",
+    "upfrontAmount": 0,
+    "remainingAmount": 2299,
+    "commission": 0,
+    "_id": "68e547f47a9eb8fe89347a2c",
+    "createdAt": "2025-10-07T17:03:48.475Z",
+    "updatedAt": "2025-10-07T17:03:48.475Z",
+    "__v": 0,
+    "id": "68e547f47a9eb8fe89347a2c"
   }
 ]

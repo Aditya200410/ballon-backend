@@ -9,7 +9,11 @@ const getAllProducts = async (req, res) => {
   try {
     const { category, subCategory, limit, search } = req.query;
 
-    const query = {};
+    // Base query: only show products that are in stock and have stock > 0
+    const query = {
+      inStock: true,
+      stock: { $gt: 0 }
+    };
 
     // If category provided, try to handle both ObjectId and name (case-insensitive)
     if (category) {
@@ -64,8 +68,9 @@ const getAllProducts = async (req, res) => {
       dbQuery = dbQuery.sort({ date: -1 });
     }
 
-    // Apply limit - default to 50 if not specified to prevent loading thousands of products
-    const productLimit = limit && !isNaN(parseInt(limit)) ? parseInt(limit) : 50;
+    // Apply limit - default to 1000 if not specified to accommodate all products (300+)
+    // This ensures all products can be displayed in admin and shop
+    const productLimit = limit && !isNaN(parseInt(limit)) ? parseInt(limit) : 1000;
     dbQuery = dbQuery.limit(productLimit);
 
     const products = await dbQuery.exec();
@@ -82,17 +87,21 @@ const getAllProducts = async (req, res) => {
 const getProductsBySection = async (req, res) => {
   try {
     const { section } = req.params;
-    let query = {};
+    let query = {
+      // Only show in-stock products
+      inStock: true,
+      stock: { $gt: 0 }
+    };
     
     switch(section) {
       case 'bestsellers':
-        query = { isBestSeller: true };
+        query.isBestSeller = true;
         break;
-      case 'featured':
-        query = { isFeatured: true };
+      case 'trending':
+        query.isTrending = true;
         break;
       case 'mostloved':
-        query = { isMostLoved: true };
+        query.isMostLoved = true;
         break;
       default:
         return res.status(400).json({ message: "Invalid section" });
@@ -206,7 +215,7 @@ const createProductWithFiles = async (req, res) => {
       images: imagePaths,
       inStock: productData.inStock === 'true',
       isBestSeller: productData.isBestSeller === 'true',
-      isFeatured: productData.isFeatured === 'true',
+      isTrending: productData.isTrending === 'true',
       isMostLoved: productData.isMostLoved === 'true',
       codAvailable: productData.codAvailable !== 'false',
       stock: Number(productData.stock) || 0
@@ -309,7 +318,7 @@ const updateProductWithFiles = async (req, res) => {
       images: imagePaths,
       inStock: productData.inStock !== undefined ? (productData.inStock === 'true') : existingProduct.inStock,
       isBestSeller: productData.isBestSeller !== undefined ? (productData.isBestSeller === 'true') : existingProduct.isBestSeller,
-      isFeatured: productData.isFeatured !== undefined ? (productData.isFeatured === 'true') : existingProduct.isFeatured,
+      isTrending: productData.isTrending !== undefined ? (productData.isTrending === 'true') : existingProduct.isTrending,
       isMostLoved: productData.isMostLoved !== undefined ? (productData.isMostLoved === 'true') : existingProduct.isMostLoved,
       codAvailable: productData.codAvailable !== undefined ? (productData.codAvailable !== 'false') : existingProduct.codAvailable,
       stock: productData.stock !== undefined ? Number(productData.stock) : existingProduct.stock
@@ -331,10 +340,10 @@ const updateProductSections = async (req, res) => {
     console.log('Update data:', req.body);
 
     const { id } = req.params;
-    const { isBestSeller, isFeatured, isMostLoved } = req.body;
+    const { isBestSeller, isTrending, isMostLoved } = req.body;
 
     // Validate that at least one section flag is provided
-    if (isBestSeller === undefined && isFeatured === undefined && isMostLoved === undefined) {
+    if (isBestSeller === undefined && isTrending === undefined && isMostLoved === undefined) {
       console.log('Error: No section flags provided');
       return res.status(400).json({ message: "At least one section flag must be provided" });
     }
@@ -348,14 +357,14 @@ const updateProductSections = async (req, res) => {
 
     console.log('Current product sections:', {
       isBestSeller: product.isBestSeller,
-      isFeatured: product.isFeatured,
+      isTrending: product.isTrending,
       isMostLoved: product.isMostLoved
     });
 
     // Build update object with only the provided flags
     const updates = {};
     if (isBestSeller !== undefined) updates.isBestSeller = isBestSeller;
-    if (isFeatured !== undefined) updates.isFeatured = isFeatured;
+    if (isTrending !== undefined) updates.isTrending = isTrending;
     if (isMostLoved !== undefined) updates.isMostLoved = isMostLoved;
 
     console.log('Applying updates:', updates);
@@ -369,7 +378,7 @@ const updateProductSections = async (req, res) => {
 
     console.log('Updated product sections:', {
       isBestSeller: updatedProduct.isBestSeller,
-      isFeatured: updatedProduct.isFeatured,
+      isTrending: updatedProduct.isTrending,
       isMostLoved: updatedProduct.isMostLoved
     });
 

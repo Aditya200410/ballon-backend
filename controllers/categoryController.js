@@ -14,10 +14,14 @@ exports.getAllCategories = async (req, res) => {
 exports.getNestedCategories = async (req, res) => {
     try {
     // 1. Fetch all main categories, sub-categories, and products in parallel
+    // Only fetch products that are in stock and have stock > 0
     const [categories, subCategories, products] = await Promise.all([
       Category.find({ isActive: true }).sort({ sortOrder: 1 }).lean(),
       SubCategory.find({ isActive: true }).sort({ sortOrder: 1 }).lean(),
-      require('../models/Product').find({})
+      require('../models/Product').find({ 
+        inStock: true,
+        stock: { $gt: 0 }
+      })
     ]);
 
     // 2. Create a map for quick lookup of sub-categories by their parent ID
@@ -30,7 +34,7 @@ exports.getNestedCategories = async (req, res) => {
       subCategoryMap[parentId].push(sub);
     }
 
-    // 3. Count products for each category
+    // 3. Count products for each category (only in-stock products)
     const productCountMap = {};
     for (const product of products) {
       const catId = product.category?.toString();
