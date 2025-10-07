@@ -1,4 +1,5 @@
 const Order = require('../models/Order');
+const Counter = require('../models/Counter');
 const Seller = require('../models/Seller');
 const fs = require('fs').promises;
 const path = require('path');
@@ -148,7 +149,12 @@ const createOrder = async (req, res) => {
       }
     }
 
+    // Generate custom order ID
+    const orderNumber = await Counter.getNextSequence('order');
+    const customOrderId = `decorationcelebration${orderNumber}`;
+
     const newOrder = new Order({
+      customOrderId,
       customerName,
       email,
       phone,
@@ -230,7 +236,7 @@ const createOrder = async (req, res) => {
 
 // Helper to send the NEW redesigned order confirmation email
 async function sendOrderConfirmationEmail(order) {
-  const { email, customerName, items, addOns, totalAmount, address, scheduledDelivery, _id } = order;
+  const { email, customerName, items, addOns, totalAmount, address, scheduledDelivery, _id, customOrderId } = order;
   const subject = '🎉 Let\'s Get this Party Started! Your Order is Confirmed!';
 
   // Build order items table
@@ -309,7 +315,8 @@ async function sendOrderConfirmationEmail(order) {
           </div>
           <div style="width: 48%;">
             <h3 style="color: #444; border-bottom: 2px solid #FFD700; padding-bottom: 5px; margin-top: 0; font-size: 18px;">📋 Order ID</h3>
-            <p style="margin: 0; line-height: 1.6;">#${_id}</p>
+            <p style="margin: 0; line-height: 1.6; font-weight: bold;">#${customOrderId}</p>
+            <p style="margin: 5px 0 0 0; line-height: 1.4; font-size: 11px; color: #666;">Database ID: ${_id}</p>
           </div>
         </div>
 
@@ -347,7 +354,7 @@ async function sendOrderConfirmationEmail(order) {
   `;
 
   // Plain text version
-  const textBody = `Hey ${customerName},\n\nWoohoo! Your Decoryy order is confirmed! Here are the details:\n\nOrder ID: #${_id}\n\nItems:\n${items.map(item => `- ${item.name} x${item.quantity} (₹${item.price.toFixed(2)})`).join('\n')}\n\n${addOns && addOns.length > 0 ? 'Add-Ons:\n' + addOns.map(a => `- ${a.name} (₹${a.price.toFixed(2)})`).join('\n') + '\n' : ''}Total: ₹${totalAmount.toFixed(2)}\n\nShipping Address:\n${address.street || ''}\n${address.pincode || ''}\n${address.country || ''}\n\n${scheduledDelivery ? 'Scheduled For: ' + new Date(scheduledDelivery).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' }) + '\n' : ''}\nThanks for choosing us!\nThe Decoryy Team 🥳`;
+  const textBody = `Hey ${customerName},\n\nWoohoo! Your Decoryy order is confirmed! Here are the details:\n\nOrder ID: #${customOrderId}\nDatabase ID: ${_id}\n\nItems:\n${items.map(item => `- ${item.name} x${item.quantity} (₹${item.price.toFixed(2)})`).join('\n')}\n\n${addOns && addOns.length > 0 ? 'Add-Ons:\n' + addOns.map(a => `- ${a.name} (₹${a.price.toFixed(2)})`).join('\n') + '\n' : ''}Total: ₹${totalAmount.toFixed(2)}\n\nShipping Address:\n${address.street || ''}\n${address.pincode || ''}\n${address.country || ''}\n\n${scheduledDelivery ? 'Scheduled For: ' + new Date(scheduledDelivery).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' }) + '\n' : ''}\nThanks for choosing us!\nThe Decoryy Team 🥳`;
 
   try {
     await transporter.sendMail({
@@ -429,7 +436,7 @@ async function appendOrderToJson(order) {
 
 // BONUS: Updated Order Status Email with new branding
 async function sendOrderStatusUpdateEmail(order) {
-  const { email, customerName, orderStatus, _id } = order;
+  const { email, customerName, orderStatus, _id, customOrderId } = order;
   const subject = `🥳 Party Update! Your Order is Now: ${orderStatus.charAt(0).toUpperCase() + orderStatus.slice(1)}`;
 
   const htmlBody = `
@@ -443,7 +450,7 @@ async function sendOrderStatusUpdateEmail(order) {
           Hi <strong>${customerName}</strong>,
         </p>
         <p style="color: #333; font-size: 16px; line-height: 1.6; margin: 15px 0;">
-          Just a quick note to let you know your order #${_id} has been updated.
+          Just a quick note to let you know your order #${customOrderId} has been updated.
         </p>
         <div style="text-align: center; margin: 25px 0; padding: 15px; background-color: #FFF9C4; border-radius: 10px; border: 2px solid #FBC02D;">
           <p style="margin: 0; font-size: 16px; color: #555;">New Status:</p>
@@ -462,7 +469,7 @@ async function sendOrderStatusUpdateEmail(order) {
     </div>
   `;
   
-  const textBody = `Hi ${customerName},\n\nAn update on your Decoryy order #${_id}.\nNew Status: ${orderStatus.charAt(0).toUpperCase() + orderStatus.slice(1)}\n\nCheers,\nThe Decoryy Team 🥳`;
+  const textBody = `Hi ${customerName},\n\nAn update on your Decoryy order #${customOrderId}.\nDatabase ID: ${_id}\nNew Status: ${orderStatus.charAt(0).toUpperCase() + orderStatus.slice(1)}\n\nCheers,\nThe Decoryy Team 🥳`;
 
   try {
     await transporter.sendMail({

@@ -4,10 +4,10 @@ const mongoose = require('mongoose');
 const fs = require('fs').promises;
 const path = require('path');
 
-// Get all products (supports optional query filters: category (name or id), subCategory (name or id), limit)
+// Get all products (supports optional query filters: category (name or id), subCategory (name or id), limit, search)
 const getAllProducts = async (req, res) => {
   try {
-    const { category, subCategory, limit } = req.query;
+    const { category, subCategory, limit, search } = req.query;
 
     const query = {};
 
@@ -37,14 +37,36 @@ const getAllProducts = async (req, res) => {
       }
     }
 
+    // Handle search with MongoDB text search (much faster with indexes)
+    if (search && search.trim()) {
+      const searchTerm = search.trim();
+      
+      // Use MongoDB text search for better performance with indexes
+      // Text search is much faster than regex for large datasets
+      query.$text = { $search: searchTerm };
+      
+      // Note: When using $text, we need to handle existing filters differently
+      // MongoDB doesn't support complex $and with $text, so we keep it simple
+      if (category || subCategory) {
+        // If there are other filters, they'll be combined naturally
+        // as separate fields in the query object
+      }
+    }
+
     let dbQuery = Product.find(query)
       .populate('category', 'name slug')
-      .populate('subCategory', 'name slug')
-      .sort({ date: -1 });
-
-    if (limit && !isNaN(parseInt(limit))) {
-      dbQuery = dbQuery.limit(parseInt(limit));
+      .populate('subCategory', 'name slug');
+    
+    // Sort by relevance if text search is used, otherwise by date
+    if (search && search.trim()) {
+      dbQuery = dbQuery.sort({ score: { $meta: 'textScore' }, date: -1 });
+    } else {
+      dbQuery = dbQuery.sort({ date: -1 });
     }
+
+    // Apply limit - default to 50 if not specified to prevent loading thousands of products
+    const productLimit = limit && !isNaN(parseInt(limit)) ? parseInt(limit) : 50;
+    dbQuery = dbQuery.limit(productLimit);
 
     const products = await dbQuery.exec();
 

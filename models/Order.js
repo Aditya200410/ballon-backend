@@ -18,6 +18,7 @@ const addOnSchema = new mongoose.Schema({
 
 // Main schema for an order
 const orderSchema = new mongoose.Schema({
+  customOrderId: { type: String, unique: true, index: true }, // Custom order ID like decorationcelebration1
   customerName: { type: String, required: true },
   email: { type: String, required: true, index: true }, // Index for fast lookups
   phone: { type: String, required: true },
