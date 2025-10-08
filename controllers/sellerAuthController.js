@@ -56,6 +56,24 @@ exports.register = async (req, res) => {
 
    
   
+    // Process included, excluded, and faq
+    const processIncludedExcluded = (data) => {
+      if (!data) return [];
+      if (Array.isArray(data)) return data;
+      // Split by newline or comma
+      return data.split(/[\n,]/).map(item => item.trim()).filter(item => item);
+    };
+
+    const processFaq = (data) => {
+      if (!data) return [];
+      if (Array.isArray(data)) return data;
+      try {
+        return JSON.parse(data);
+      } catch (e) {
+        return [];
+      }
+    };
+
     // Create seller with all info including new fields
     const seller = await Seller.create({
       businessName,
@@ -78,6 +96,9 @@ exports.register = async (req, res) => {
       roomsAvailable: roomsAvailable || 1,
       bookingPolicy,
       additionalFeatures: additionalFeatures ? (Array.isArray(additionalFeatures) ? additionalFeatures : additionalFeatures.split(',').map(item => item.trim())) : [],
+      included: processIncludedExcluded(req.body.included),
+      excluded: processIncludedExcluded(req.body.excluded),
+      faq: processFaq(req.body.faq),
       images
     });
 
