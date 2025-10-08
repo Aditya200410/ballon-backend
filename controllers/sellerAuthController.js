@@ -252,6 +252,17 @@ exports.updateProfile = async (req, res) => {
       maxPersonsAllowed: req.body.maxPersonsAllowed
     };
 
+    // Handle array fields
+    if (req.body.included !== undefined) {
+      updates.included = Array.isArray(req.body.included) ? req.body.included : [];
+    }
+    if (req.body.excluded !== undefined) {
+      updates.excluded = Array.isArray(req.body.excluded) ? req.body.excluded : [];
+    }
+    if (req.body.faq !== undefined) {
+      updates.faq = Array.isArray(req.body.faq) ? req.body.faq : [];
+    }
+
     const seller = await Seller.findByIdAndUpdate(
       req.seller._id,
       { $set: updates },
@@ -763,6 +774,24 @@ exports.updateSellerProfile = async (req, res) => {
       return [];
     };
 
+    // Process FAQ field - handle JSON string or array
+    const processFaqField = () => {
+      if (req.body.faq) {
+        if (Array.isArray(req.body.faq)) {
+          return req.body.faq;
+        }
+        if (typeof req.body.faq === 'string') {
+          try {
+            return JSON.parse(req.body.faq);
+          } catch (e) {
+            console.error('Error parsing FAQ JSON:', e);
+            return [];
+          }
+        }
+      }
+      return [];
+    };
+
     const updates = {
       businessName: req.body.businessName,
       phone: req.body.phone,
@@ -782,6 +811,9 @@ exports.updateSellerProfile = async (req, res) => {
       roomsAvailable: req.body.roomsAvailable,
       bookingPolicy: req.body.bookingPolicy,
       additionalFeatures: processArrayField('additionalFeatures'),
+      included: processArrayField('included'),
+      excluded: processArrayField('excluded'),
+      faq: processFaqField(),
       verified: req.body.verified === 'true' || req.body.verified === true,
       approved: req.body.approved === 'true' || req.body.approved === true,
       blocked: req.body.blocked === 'true' || req.body.blocked === true
