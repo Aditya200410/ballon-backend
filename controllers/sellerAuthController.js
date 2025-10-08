@@ -776,19 +776,27 @@ exports.updateSellerProfile = async (req, res) => {
 
     // Process FAQ field - handle JSON string or array
     const processFaqField = () => {
+      console.log('Processing FAQ field:', req.body.faq);
+      console.log('FAQ type:', typeof req.body.faq);
+      
       if (req.body.faq) {
         if (Array.isArray(req.body.faq)) {
+          console.log('FAQ is array:', req.body.faq);
           return req.body.faq;
         }
         if (typeof req.body.faq === 'string') {
           try {
-            return JSON.parse(req.body.faq);
+            const parsed = JSON.parse(req.body.faq);
+            console.log('FAQ parsed from JSON:', parsed);
+            return parsed;
           } catch (e) {
             console.error('Error parsing FAQ JSON:', e);
+            console.error('FAQ string was:', req.body.faq);
             return [];
           }
         }
       }
+      console.log('FAQ defaulting to empty array');
       return [];
     };
 
@@ -837,9 +845,11 @@ exports.updateSellerProfile = async (req, res) => {
     });
 
     console.log('Updating seller with ID:', id);
-    console.log('Updates object:', updates);
+    console.log('Request body keys:', Object.keys(req.body));
+    console.log('Updates object:', JSON.stringify(updates, null, 2));
     console.log('Files received:', req.files ? req.files.length : 0);
     console.log('Profile file received:', !!req.file);
+    console.log('FAQ in updates:', updates.faq);
 
     const seller = await Seller.findByIdAndUpdate(
       id,
