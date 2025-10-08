@@ -1,5 +1,26 @@
 const mongoose = require('mongoose');
 
+const addonSchema = new mongoose.Schema({
+  addonId: {
+    type: String,
+    required: true
+  },
+  name: {
+    type: String,
+    required: true
+  },
+  price: {
+    type: Number,
+    required: true
+  },
+  quantity: {
+    type: Number,
+    required: true,
+    min: 1,
+    default: 1
+  }
+}, { _id: false });
+
 const cartItemSchema = new mongoose.Schema({
   productId: {
     type: String,
@@ -30,7 +51,8 @@ const cartItemSchema = new mongoose.Schema({
   category: {
     type: String,
     default: ''
-  }
+  },
+  addons: [addonSchema]
 });
 
 const cartSchema = new mongoose.Schema({
