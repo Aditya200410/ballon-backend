@@ -6,6 +6,7 @@ const cors = require("cors");
 const path = require("path");
 const cookieParser = require("cookie-parser");
 const shopRoutes = require("./routes/shop");
+const productRoutes = require("./routes/products");
 const orderRoutes = require("./routes/orders");
 const authRoutes = require('./routes/auth'); // Assuming your auth routes are here
 const adminAuthRoutes = require('./routes/adminAuth'); // Admin authentication routes
@@ -146,6 +147,7 @@ mongoose.connect(MONGODB_URI, {
 
 // API Routes
 app.use("/api/shop", shopRoutes);
+app.use("/api/products", productRoutes);
 app.use("/api/orders", orderRoutes);
 app.use('/api/bestseller', bestSellerRoutes);
 app.use('/api/auth', authRoutes);

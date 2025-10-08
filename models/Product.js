@@ -41,6 +41,11 @@ const productSchema = new mongoose.Schema({
   rating: { type: Number, default: 0 },
   reviews: { type: Number, default: 0 },
   codAvailable: { type: Boolean, default: true },
+  // Cities where this product is available
+  cities: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'City'
+  }],
   date: { type: Date, default: Date.now }
 });
 

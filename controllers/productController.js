@@ -4,16 +4,30 @@ const mongoose = require('mongoose');
 const fs = require('fs').promises;
 const path = require('path');
 
-// Get all products (supports optional query filters: category (name or id), subCategory (name or id), limit, search)
+// Get all products (supports optional query filters: category (name or id), subCategory (name or id), limit, search, city)
 const getAllProducts = async (req, res) => {
   try {
-    const { category, subCategory, limit, search } = req.query;
+    const { category, subCategory, limit, search, city } = req.query;
 
     // Base query: only show products that are in stock and have stock > 0
     const query = {
       inStock: true,
       stock: { $gt: 0 }
     };
+
+    // If city provided, filter by city
+    if (city) {
+      if (mongoose.Types.ObjectId.isValid(city)) {
+        query.cities = city;
+      } else {
+        // Try to find city by name
+        const City = require('../models/City');
+        const cityDoc = await City.findOne({ name: new RegExp(`^${city}$`, 'i') });
+        if (cityDoc) {
+          query.cities = cityDoc._id;
+        }
+      }
+    }
 
     // If category provided, try to handle both ObjectId and name (case-insensitive)
     if (category) {

@@ -470,5 +470,45 @@
     "updatedAt": "2025-10-07T17:03:48.475Z",
     "__v": 0,
     "id": "68e547f47a9eb8fe89347a2c"
+  },
+  {
+    "customOrderId": "decorationcelebration2",
+    "customerName": "aditya Kumar",
+    "email": "adityakumar098k@gmail.com",
+    "phone": "09114703231",
+    "address": {
+      "street": "Burla",
+      "pincode": "768018",
+      "country": "India"
+    },
+    "scheduledDelivery": "2025-10-24T09:52:00.000Z",
+    "items": [
+      {
+        "productId": "68dbcef0ffaf1ee1882372c1",
+        "name": "Car Decoration",
+        "price": 2199,
+        "quantity": 1,
+        "image": "https://res.cloudinary.com/drztexsbw/image/upload/v1759235823/pawnshop-products/vbmbaznvi8qniu6wokjl.webp"
+      }
+    ],
+    "addOns": [
+      {
+        "name": "test",
+        "price": 100,
+        "quantity": 4
+      }
+    ],
+    "totalAmount": 2699,
+    "paymentMethod": "cod",
+    "orderStatus": "processing",
+    "paymentStatus": "pending",
+    "upfrontAmount": 0,
+    "remainingAmount": 2699,
+    "commission": 0,
+    "_id": "68e63385833b563e03932ac6",
+    "createdAt": "2025-10-08T09:48:53.345Z",
+    "updatedAt": "2025-10-08T09:48:53.345Z",
+    "__v": 0,
+    "id": "68e63385833b563e03932ac6"
   }
 ]
