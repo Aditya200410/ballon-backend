@@ -41,7 +41,12 @@ const heroCarouselSchema = new mongoose.Schema({
   order: {
     type: Number,
     default: 0
-  }
+  },
+  // Cities where this carousel item is shown
+  cities: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'City'
+  }]
 }, {
   timestamps: true
 });

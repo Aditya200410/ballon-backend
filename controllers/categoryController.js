@@ -1,10 +1,41 @@
 const Category = require('../models/Category');
 
 const SubCategory = require('../models/SubCategory');
-// Get all categories
+// Get all categories (with optional city filter)
 exports.getAllCategories = async (req, res) => {
   try {
-    const categories = await Category.find({ isActive: true }).sort({ sortOrder: 1, name: 1 });
+    const { city } = req.query;
+    const query = { isActive: true };
+    
+    // If city provided, filter by city (with backward compatibility)
+    if (city) {
+      const City = require('../models/City');
+      const mongoose = require('mongoose');
+      let cityId = null;
+      
+      if (mongoose.Types.ObjectId.isValid(city)) {
+        cityId = city;
+      } else {
+        // Try to find city by name
+        const cityDoc = await City.findOne({ name: new RegExp(`^${city}$`, 'i') });
+        if (cityDoc) {
+          cityId = cityDoc._id;
+        }
+      }
+      
+      if (cityId) {
+        // Find categories that either:
+        // 1. Have this city in their cities array, OR
+        // 2. Have an empty cities array (backward compatibility)
+        query.$or = [
+          { cities: cityId },
+          { cities: { $exists: false } },
+          { cities: { $size: 0 } }
+        ];
+      }
+    }
+    
+    const categories = await Category.find(query).sort({ sortOrder: 1, name: 1 });
     res.json({ categories });
   } catch (error) {
     console.error('Error in getAllCategories:', error);
@@ -13,15 +44,55 @@ exports.getAllCategories = async (req, res) => {
 };
 exports.getNestedCategories = async (req, res) => {
     try {
+    const { city } = req.query;
+    const mongoose = require('mongoose');
+    
+    // Build city filter
+    let cityFilter = null;
+    if (city) {
+      const City = require('../models/City');
+      if (mongoose.Types.ObjectId.isValid(city)) {
+        cityFilter = city;
+      } else {
+        const cityDoc = await City.findOne({ name: new RegExp(`^${city}$`, 'i') });
+        if (cityDoc) {
+          cityFilter = cityDoc._id;
+        }
+      }
+    }
+    
+    // Build queries with city filter if provided (with backward compatibility)
+    const categoryQuery = { isActive: true };
+    const subCategoryQuery = { isActive: true };
+    const productQuery = { inStock: true, stock: { $gt: 0 } };
+    
+    if (cityFilter) {
+      // Include items with this city OR empty cities array (backward compatibility)
+      categoryQuery.$or = [
+        { cities: cityFilter },
+        { cities: { $exists: false } },
+        { cities: { $size: 0 } }
+      ];
+      
+      subCategoryQuery.$or = [
+        { cities: cityFilter },
+        { cities: { $exists: false } },
+        { cities: { $size: 0 } }
+      ];
+      
+      productQuery.$or = [
+        { cities: cityFilter },
+        { cities: { $exists: false } },
+        { cities: { $size: 0 } }
+      ];
+    }
+    
     // 1. Fetch all main categories, sub-categories, and products in parallel
     // Only fetch products that are in stock and have stock > 0
     const [categories, subCategories, products] = await Promise.all([
-      Category.find({ isActive: true }).sort({ sortOrder: 1 }).lean(),
-      SubCategory.find({ isActive: true }).sort({ sortOrder: 1 }).lean(),
-      require('../models/Product').find({ 
-        inStock: true,
-        stock: { $gt: 0 }
-      })
+      Category.find(categoryQuery).sort({ sortOrder: 1 }).lean(),
+      SubCategory.find(subCategoryQuery).sort({ sortOrder: 1 }).lean(),
+      require('../models/Product').find(productQuery)
     ]);
 
     // 2. Create a map for quick lookup of sub-categories by their parent ID

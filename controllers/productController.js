@@ -15,17 +15,30 @@ const getAllProducts = async (req, res) => {
       stock: { $gt: 0 }
     };
 
-    // If city provided, filter by city
+    // If city provided, filter by city (with backward compatibility)
     if (city) {
+      const City = require('../models/City');
+      let cityId = null;
+      
       if (mongoose.Types.ObjectId.isValid(city)) {
-        query.cities = city;
+        cityId = city;
       } else {
         // Try to find city by name
-        const City = require('../models/City');
         const cityDoc = await City.findOne({ name: new RegExp(`^${city}$`, 'i') });
         if (cityDoc) {
-          query.cities = cityDoc._id;
+          cityId = cityDoc._id;
         }
+      }
+      
+      if (cityId) {
+        // Find products that either:
+        // 1. Have this city in their cities array, OR
+        // 2. Have an empty cities array (backward compatibility)
+        query.$or = [
+          { cities: cityId },
+          { cities: { $exists: false } },
+          { cities: { $size: 0 } }
+        ];
       }
     }
 
@@ -34,12 +47,21 @@ const getAllProducts = async (req, res) => {
       if (mongoose.Types.ObjectId.isValid(category)) {
         query.category = category;
       } else {
-        const catDoc = await Category.findOne({ name: new RegExp(`^${category}$`, 'i') });
-        if (catDoc) query.category = catDoc._id;
-        else {
-          // If no matching category by name, try slug match
-          const catBySlug = await Category.findOne({ slug: category.toLowerCase() });
-          if (catBySlug) query.category = catBySlug._id;
+        // First try to find category by name or slug
+        const catDoc = await Category.findOne({ 
+          $or: [
+            { name: new RegExp(`^${category}$`, 'i') },
+            { slug: category.toLowerCase() }
+          ]
+        });
+        
+        if (catDoc) {
+          query.category = catDoc._id;
+          // Note: We don't need to verify category-city match here because
+          // the product query already handles city filtering with backward compatibility
+        } else {
+          // Category not found
+          return res.json([]);
         }
       }
     }

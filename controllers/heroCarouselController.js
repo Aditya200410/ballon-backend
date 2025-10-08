@@ -88,10 +88,41 @@ const getCarouselItem = async (req, res) => {
   }
 };
 
-// Get active carousel items
+// Get active carousel items (with optional city filter)
 const getActiveCarouselItems = async (req, res) => {
   try {
-    const items = await HeroCarousel.find({ isActive: true }).sort('order');
+    const { city } = req.query;
+    const query = { isActive: true };
+    
+    // If city provided, filter by city (with backward compatibility)
+    if (city) {
+      const City = require('../models/City');
+      const mongoose = require('mongoose');
+      let cityId = null;
+      
+      if (mongoose.Types.ObjectId.isValid(city)) {
+        cityId = city;
+      } else {
+        // Try to find city by name
+        const cityDoc = await City.findOne({ name: new RegExp(`^${city}$`, 'i') });
+        if (cityDoc) {
+          cityId = cityDoc._id;
+        }
+      }
+      
+      if (cityId) {
+        // Find carousel items that either:
+        // 1. Have this city in their cities array, OR
+        // 2. Have an empty cities array (backward compatibility)
+        query.$or = [
+          { cities: cityId },
+          { cities: { $exists: false } },
+          { cities: { $size: 0 } }
+        ];
+      }
+    }
+    
+    const items = await HeroCarousel.find(query).sort('order');
     res.json(items);
   } catch (error) {
     console.error('Error fetching active carousel items:', error);

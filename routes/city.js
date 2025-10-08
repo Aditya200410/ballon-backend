@@ -26,4 +26,22 @@ router.delete('/:id/products', cityController.removeProductsFromCity);
 // Import products from another city
 router.post('/:id/import', cityController.importProductsFromCity);
 
+// Category management
+router.get('/:id/categories', cityController.getCityCategories);
+router.post('/:id/categories', cityController.addCategoriesToCity);
+router.delete('/:id/categories', cityController.removeCategoriesFromCity);
+
+// SubCategory management
+router.get('/:id/subcategories', cityController.getCitySubCategories);
+router.post('/:id/subcategories', cityController.addSubCategoriesToCity);
+router.delete('/:id/subcategories', cityController.removeSubCategoriesFromCity);
+
+// Hero Carousel management
+router.get('/:id/carousel', cityController.getCityCarouselItems);
+router.post('/:id/carousel', cityController.addCarouselItemsToCity);
+router.delete('/:id/carousel', cityController.removeCarouselItemsFromCity);
+
+// Import all content from another city
+router.post('/:id/import-all', cityController.importAllFromCity);
+
 module.exports = router;

@@ -33,7 +33,12 @@ const categorySchema = new mongoose.Schema({
   sortOrder: {
     type: Number,
     default: 0
-  }
+  },
+  // Cities where this category is available
+  cities: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'City'
+  }]
 }, {
   timestamps: true
 });
