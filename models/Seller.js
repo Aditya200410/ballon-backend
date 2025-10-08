@@ -121,6 +121,22 @@ const sellerSchema = new mongoose.Schema({
     default: []
   },
 
+  // ✅ NEW: Included/Excluded/FAQ Fields
+  included: {
+    type: [String],
+    required: false,
+    default: []
+  },
+  excluded: {
+    type: [String],
+    required: false,
+    default: []
+  },
+  faq: [{
+    question: { type: String, required: false },
+    answer: { type: String, required: false }
+  }],
+
   createdAt: {
     type: Date,
     default: Date.now
