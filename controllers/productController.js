@@ -157,10 +157,27 @@ const getProductsBySection = async (req, res) => {
 // Get single product
 const getProduct = async (req, res) => {
   try {
-    // UPDATED: Populate category and subCategory for a single product view
-    const product = await Product.findById(req.params.id)
-      .populate('category', 'name slug')
-      .populate('subCategory', 'name slug');
+    const { id } = req.params;
+    let product;
+    
+    // Try to find by MongoDB ID first
+    if (mongoose.Types.ObjectId.isValid(id)) {
+      product = await Product.findById(id)
+        .populate('category', 'name slug')
+        .populate('subCategory', 'name slug');
+    }
+    
+    // If not found by ID or ID is invalid, try to find by name (URL-decoded and slug-to-name conversion)
+    if (!product) {
+      // Convert slug back to searchable name (replace hyphens with spaces and make case-insensitive)
+      const nameFromSlug = decodeURIComponent(id).replace(/-/g, ' ');
+      product = await Product.findOne({ 
+        name: new RegExp(`^${nameFromSlug}$`, 'i') 
+      })
+        .populate('category', 'name slug')
+        .populate('subCategory', 'name slug');
+    }
+    
     if (!product) {
       return res.status(404).json({ message: "Product not found" });
     }
