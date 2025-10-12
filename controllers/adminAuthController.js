@@ -56,7 +56,7 @@ const adminLogin = async (req, res) => {
         type: 'admin' // Add type to distinguish from other tokens
       },
       jwtSecret,
-      { expiresIn: '24h' }
+      { expiresIn: '30d' }
     );
     
     console.log('Admin login successful:', { id: admin._id, email: admin.email });

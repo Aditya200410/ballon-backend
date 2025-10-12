@@ -6,7 +6,14 @@ const HeroCarousel = require('../models/heroCarousel');
 
 exports.getCities = async (req, res) => {
     try {
-        const cities = await City.find().sort({ name: 1 });
+        // Check if request is from admin (has showAll query param)
+        const showAll = req.query.showAll === 'true';
+        
+        // For frontend, only show cities where isActive is not explicitly false
+        // This handles legacy cities (undefined) and new cities (true)
+        // For admin, show all cities
+        const query = showAll ? {} : { isActive: { $ne: false } };
+        const cities = await City.find(query).sort({ name: 1 });
         
         // Get product count for each city
         const citiesWithCount = await Promise.all(cities.map(async (city) => {
@@ -45,11 +52,30 @@ exports.deleteCity = async (req, res) => {
 
 exports.updateCity = async (req, res) => {
     try {
-        const { name, state } = req.body;
-        const city = await City.findByIdAndUpdate(req.params.id, { name, state }, { new: true });
+        const { name, state, isActive } = req.body;
+        const updateData = { name, state };
+        if (isActive !== undefined) {
+            updateData.isActive = isActive;
+        }
+        const city = await City.findByIdAndUpdate(req.params.id, updateData, { new: true });
         res.json({ city });
     } catch (err) {
         res.status(400).json({ error: 'Failed to update city' });
+    }
+};
+
+// Toggle city active status
+exports.toggleCityStatus = async (req, res) => {
+    try {
+        const city = await City.findById(req.params.id);
+        if (!city) {
+            return res.status(404).json({ error: 'City not found' });
+        }
+        city.isActive = !city.isActive;
+        await city.save();
+        res.json({ city, message: `City ${city.isActive ? 'activated' : 'deactivated'} successfully` });
+    } catch (err) {
+        res.status(400).json({ error: 'Failed to toggle city status' });
     }
 };
 

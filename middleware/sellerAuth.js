@@ -37,10 +37,29 @@ const sellerAuth = async (req, res, next) => {
     req.seller = seller;
     next();
   } catch (error) {
+    // Handle specific JWT errors
+    if (error.name === 'TokenExpiredError') {
+      console.error('Token expired at:', error.expiredAt);
+      return res.status(401).json({
+        success: false,
+        message: 'Your session has expired. Please log in again.',
+        error: 'TOKEN_EXPIRED'
+      });
+    }
+    
+    if (error.name === 'JsonWebTokenError') {
+      console.error('Invalid token:', error.message);
+      return res.status(401).json({
+        success: false,
+        message: 'Invalid authentication token. Please log in again.',
+        error: 'INVALID_TOKEN'
+      });
+    }
+    
     console.error('Seller authentication error:', error);
     res.status(401).json({
       success: false,
-      message: 'Authentication failed'
+      message: 'Authentication failed. Please log in again.'
     });
   }
 };

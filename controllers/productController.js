@@ -4,10 +4,10 @@ const mongoose = require('mongoose');
 const fs = require('fs').promises;
 const path = require('path');
 
-// Get all products (supports optional query filters: category (name or id), subCategory (name or id), limit, search, city)
+// Get all products (supports optional query filters: category (name or id), subCategory (name or id), limit, search, city, page)
 const getAllProducts = async (req, res) => {
   try {
-    const { category, subCategory, limit, search, city } = req.query;
+    const { category, subCategory, limit, search, city, page } = req.query;
 
     // Base query: only show products that are in stock and have stock > 0
     const query = {
@@ -56,7 +56,7 @@ const getAllProducts = async (req, res) => {
           // the product query already handles city filtering with backward compatibility
         } else {
           // Category not found
-          return res.json([]);
+          return res.json({ products: [], pagination: { total: 0, page: 1, limit: 50, totalPages: 0 } });
         }
       }
     }
@@ -88,6 +88,15 @@ const getAllProducts = async (req, res) => {
       }
     }
 
+    // Pagination logic
+    const currentPage = page && !isNaN(parseInt(page)) ? Math.max(1, parseInt(page)) : 1;
+    const productLimit = limit && !isNaN(parseInt(limit)) ? parseInt(limit) : 50;
+    const skip = (currentPage - 1) * productLimit;
+
+    // Get total count for pagination
+    const totalCount = await Product.countDocuments(query);
+    const totalPages = Math.ceil(totalCount / productLimit);
+
     let dbQuery = Product.find(query)
       .populate('category', 'name slug')
       .populate('subCategory', 'name slug');
@@ -99,15 +108,21 @@ const getAllProducts = async (req, res) => {
       dbQuery = dbQuery.sort({ date: -1 });
     }
 
-    // Apply limit - default to 1000 if not specified to accommodate all products (300+)
-    // This ensures all products can be displayed in admin and shop
-    const productLimit = limit && !isNaN(parseInt(limit)) ? parseInt(limit) : 1000;
-    dbQuery = dbQuery.limit(productLimit);
+    // Apply pagination
+    dbQuery = dbQuery.skip(skip).limit(productLimit);
 
     const products = await dbQuery.exec();
 
-    // Return in the older shape (array) so frontend code that expects array works
-    res.json(products);
+    // Return products with pagination metadata
+    res.json({
+      products,
+      pagination: {
+        total: totalCount,
+        page: currentPage,
+        limit: productLimit,
+        totalPages
+      }
+    });
   } catch (error) {
     console.error('Error fetching products:', error);
     res.status(500).json({ message: "Error fetching products", error: error.message });

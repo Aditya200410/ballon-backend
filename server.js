@@ -138,14 +138,7 @@ app.use('/pawnbackend/data', (req, res, next) => {
 // MongoDB Connection URL from environment variable
 const MONGODB_URI = process.env.MONGODB_URI || "mongodb+srv://lightyagami98k:UN1cr0DnJwISvvgs@cluster0.uwkswmj.mongodb.net/ballon?retryWrites=true&w=majority&appName=Cluster0";
 
-// Connect to MongoDB
-mongoose.connect(MONGODB_URI, {
-    useNewUrlParser: true,
-    useUnifiedTopology: true
-}).then(() => console.log("MongoDB connected to:", MONGODB_URI))
-  .catch(err => console.error("MongoDB connection error:", err));
-
-// API Routes
+// API Routes - Define routes (but don't start server yet)
 app.use("/api/shop", shopRoutes);
 app.use("/api/products", productRoutes);
 app.use("/api/orders", orderRoutes);
@@ -208,17 +201,42 @@ app.use((err, req, res, next) => {
 
 // Port from environment variable
 const PORT = process.env.PORT || 5175;
-app.listen(PORT, async () => {
-    console.log(`Server is running on port ${PORT}`);
+
+// Async function to start server after MongoDB connection
+async function startServer() {
+  try {
+    // Connect to MongoDB first and wait for connection
+    console.log('Connecting to MongoDB...');
+    await mongoose.connect(MONGODB_URI, {
+      useNewUrlParser: true,
+      useUnifiedTopology: true,
+      serverSelectionTimeoutMS: 15000, // Increase timeout to 15 seconds
+      socketTimeoutMS: 45000,
+    });
+    console.log("MongoDB connected successfully to:", MONGODB_URI);
     
-    // Initialize default settings
+    // Initialize default settings after DB connection
     try {
-        await settingsController.initializeDefaultSettings();
-        console.log('Default settings initialized successfully');
+      await settingsController.initializeDefaultSettings();
+      console.log('Default settings initialized successfully');
     } catch (error) {
-        console.error('Failed to initialize default settings:', error);
+      console.error('Failed to initialize default settings:', error);
     }
-}); 
+    
+    // Now start the server
+    app.listen(PORT, () => {
+      console.log(`Server is running on port ${PORT}`);
+      console.log('Server is ready to accept requests');
+    });
+  } catch (error) {
+    console.error("Failed to connect to MongoDB:", error);
+    console.error("Server cannot start without database connection");
+    process.exit(1); // Exit if cannot connect to database
+  }
+}
+
+// Start the server
+startServer(); 
 
 
 

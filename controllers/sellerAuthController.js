@@ -102,7 +102,7 @@ exports.register = async (req, res) => {
       images
     });
 
-    // Create JWT token for seller
+    // Create JWT token for seller (expires in 30 days)
     const token = jwt.sign(
       {
         id: seller._id,
@@ -112,7 +112,7 @@ exports.register = async (req, res) => {
         isSeller: true
       },
       process.env.JWT_SECRET_SELLER || 'your-secret-key',
-      { expiresIn: '24h' }
+      { expiresIn: '30d' }
     );
 
     res.status(201).json({
@@ -172,7 +172,7 @@ exports.login = async (req, res) => {
       return res.status(401).json({ success: false, message: 'Invalid credentials' });
     }
 
-    // Create JWT token
+    // Create JWT token (expires in 30 days)
     const token = jwt.sign(
       {
         id: seller._id,
@@ -182,7 +182,7 @@ exports.login = async (req, res) => {
         isSeller: true
       },
       process.env.JWT_SECRET_SELLER || 'your-secret-key',
-      { expiresIn: '24h' }
+      { expiresIn: '30d' }
     );
 
     res.json({

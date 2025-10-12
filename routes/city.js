@@ -18,6 +18,9 @@ router.delete('/:id', cityController.deleteCity);
 // Update a city
 router.put('/:id', cityController.updateCity);
 
+// Toggle city active status
+router.patch('/:id/toggle-status', cityController.toggleCityStatus);
+
 // Get products for a specific city
 router.get('/:id/products', cityController.getCityProducts);
 

@@ -22,7 +22,7 @@ const login = (req, res) => {
         isAdmin: true 
       },
       process.env.JWT_SECRET || 'your-secret-key',
-      { expiresIn: '24h' }
+      { expiresIn: '30d' }
     );
 
     res.json({

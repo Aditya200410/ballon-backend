@@ -29,8 +29,25 @@ const authenticateToken = (req, res, next) => {
     req.user = verified;
     next();
   } catch (error) {
+    // Handle specific JWT errors
+    if (error.name === 'TokenExpiredError') {
+      console.log('Token expired at:', error.expiredAt);
+      return res.status(401).json({ 
+        message: 'Your session has expired. Please log in again.',
+        error: 'TOKEN_EXPIRED'
+      });
+    }
+    
+    if (error.name === 'JsonWebTokenError') {
+      console.log('Invalid token:', error.message);
+      return res.status(401).json({ 
+        message: 'Invalid authentication token. Please log in again.',
+        error: 'INVALID_TOKEN'
+      });
+    }
+    
     console.log('Token verification failed:', error.message);
-    res.status(400).json({ message: 'Invalid token' });
+    res.status(401).json({ message: 'Authentication failed. Please log in again.' });
   }
 };
 
