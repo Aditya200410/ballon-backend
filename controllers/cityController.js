@@ -350,3 +350,122 @@ exports.importAllFromCity = async (req, res) => {
         res.status(400).json({ error: 'Failed to import all content' });
     }
 };
+
+// Update a product for a specific city (creates city-specific copy if needed)
+exports.updateCityProduct = async (req, res) => {
+    try {
+        const cityId = req.params.cityId;
+        const productId = req.params.productId;
+        const updateData = req.body;
+        
+        console.log('City Product Update - Request Data:', {
+            cityId,
+            productId,
+            price: updateData.price,
+            regularPrice: updateData.regularPrice,
+            name: updateData.name
+        });
+        
+        // Get the existing product
+        const existingProduct = await Product.findById(productId);
+        if (!existingProduct) {
+            return res.status(404).json({ error: 'Product not found' });
+        }
+        
+        console.log('Existing Product:', {
+            name: existingProduct.name,
+            price: existingProduct.price,
+            regularPrice: existingProduct.regularPrice,
+            citiesCount: existingProduct.cities ? existingProduct.cities.length : 0
+        });
+        
+        // Check if product exists in multiple cities
+        const citiesCount = existingProduct.cities ? existingProduct.cities.length : 0;
+        
+        if (citiesCount > 1) {
+            // Product exists in multiple cities - create a city-specific copy
+            
+            // Create a new product with the same data
+            const newProductData = {
+                name: updateData.name || existingProduct.name,
+                material: updateData.material || existingProduct.material,
+                size: updateData.size || existingProduct.size,
+                colour: updateData.colour || existingProduct.colour,
+                category: updateData.category || existingProduct.category,
+                subCategory: updateData.subCategory !== undefined ? 
+                    (updateData.subCategory === '' ? undefined : updateData.subCategory) : 
+                    existingProduct.subCategory,
+                utility: updateData.utility || existingProduct.utility,
+                care: updateData.care || existingProduct.care,
+                price: updateData.price !== undefined ? parseFloat(updateData.price) : existingProduct.price,
+                regularPrice: updateData.regularPrice !== undefined ? parseFloat(updateData.regularPrice) : existingProduct.regularPrice,
+                image: existingProduct.image,
+                images: existingProduct.images || [],
+                inStock: updateData.inStock !== undefined ? (updateData.inStock === 'true' || updateData.inStock === true) : existingProduct.inStock,
+                isBestSeller: updateData.isBestSeller !== undefined ? (updateData.isBestSeller === 'true' || updateData.isBestSeller === true) : existingProduct.isBestSeller,
+                isTrending: updateData.isTrending !== undefined ? (updateData.isTrending === 'true' || updateData.isTrending === true) : existingProduct.isTrending,
+                isMostLoved: updateData.isMostLoved !== undefined ? (updateData.isMostLoved === 'true' || updateData.isMostLoved === true) : existingProduct.isMostLoved,
+                codAvailable: updateData.codAvailable !== undefined ? (updateData.codAvailable !== 'false' && updateData.codAvailable !== false) : existingProduct.codAvailable,
+                stock: updateData.stock !== undefined ? Number(updateData.stock) : existingProduct.stock,
+                rating: existingProduct.rating,
+                reviews: existingProduct.reviews,
+                cities: [cityId] // Only assign to the current city
+            };
+            
+            // Create the new product
+            const newProduct = new Product(newProductData);
+            await newProduct.save();
+            
+            // Remove the city from the original product's cities array
+            await Product.findByIdAndUpdate(
+                productId,
+                { $pull: { cities: cityId } }
+            );
+            
+            res.json({ 
+                success: true, 
+                message: 'Product cloned and updated for this city only',
+                product: newProduct,
+                isNewProduct: true
+            });
+        } else {
+            // Product exists only in this city - update it directly
+            const updatedProductData = {
+                name: updateData.name || existingProduct.name,
+                material: updateData.material || existingProduct.material,
+                size: updateData.size || existingProduct.size,
+                colour: updateData.colour || existingProduct.colour,
+                category: updateData.category || existingProduct.category,
+                subCategory: updateData.subCategory !== undefined ? 
+                    (updateData.subCategory === '' ? undefined : updateData.subCategory) : 
+                    existingProduct.subCategory,
+                utility: updateData.utility || existingProduct.utility,
+                care: updateData.care || existingProduct.care,
+                price: updateData.price !== undefined ? parseFloat(updateData.price) : existingProduct.price,
+                regularPrice: updateData.regularPrice !== undefined ? parseFloat(updateData.regularPrice) : existingProduct.regularPrice,
+                inStock: updateData.inStock !== undefined ? (updateData.inStock === 'true' || updateData.inStock === true) : existingProduct.inStock,
+                isBestSeller: updateData.isBestSeller !== undefined ? (updateData.isBestSeller === 'true' || updateData.isBestSeller === true) : existingProduct.isBestSeller,
+                isTrending: updateData.isTrending !== undefined ? (updateData.isTrending === 'true' || updateData.isTrending === true) : existingProduct.isTrending,
+                isMostLoved: updateData.isMostLoved !== undefined ? (updateData.isMostLoved === 'true' || updateData.isMostLoved === true) : existingProduct.isMostLoved,
+                codAvailable: updateData.codAvailable !== undefined ? (updateData.codAvailable !== 'false' && updateData.codAvailable !== false) : existingProduct.codAvailable,
+                stock: updateData.stock !== undefined ? Number(updateData.stock) : existingProduct.stock
+            };
+            
+            const updatedProduct = await Product.findByIdAndUpdate(
+                productId,
+                updatedProductData,
+                { new: true }
+            );
+            
+            res.json({ 
+                success: true, 
+                message: 'Product updated for this city',
+                product: updatedProduct,
+                isNewProduct: false
+            });
+        }
+    } catch (err) {
+        console.error('Error updating city product:', err);
+        res.status(500).json({ error: 'Failed to update city product', details: err.message });
+    }
+};

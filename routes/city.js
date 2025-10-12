@@ -1,6 +1,10 @@
 const express = require('express');
 const router = express.Router();
+const multer = require('multer');
 const cityController = require('../controllers/cityController');
+
+// Configure multer to handle form data without file uploads
+const upload = multer();
 
 // Get all cities
 router.get('/', cityController.getCities);
@@ -22,6 +26,10 @@ router.post('/:id/products', cityController.addProductsToCity);
 
 // Remove products from a city
 router.delete('/:id/products', cityController.removeProductsFromCity);
+
+// Update a specific product for a city (city-specific edit)
+// upload.none() parses multipart/form-data without expecting file uploads
+router.put('/:cityId/products/:productId', upload.none(), cityController.updateCityProduct);
 
 // Import products from another city
 router.post('/:id/import', cityController.importProductsFromCity);
