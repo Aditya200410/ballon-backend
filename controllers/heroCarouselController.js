@@ -111,14 +111,9 @@ const getActiveCarouselItems = async (req, res) => {
       }
       
       if (cityId) {
-        // Find carousel items that either:
-        // 1. Have this city in their cities array, OR
-        // 2. Have an empty cities array (backward compatibility)
-        query.$or = [
-          { cities: cityId },
-          { cities: { $exists: false } },
-          { cities: { $size: 0 } }
-        ];
+        // Find ONLY carousel items that have this city in their cities array
+        // No backward compatibility - only show explicitly assigned carousel items
+        query.cities = cityId;
       }
     }
     

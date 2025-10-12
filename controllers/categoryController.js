@@ -24,14 +24,9 @@ exports.getAllCategories = async (req, res) => {
       }
       
       if (cityId) {
-        // Find categories that either:
-        // 1. Have this city in their cities array, OR
-        // 2. Have an empty cities array (backward compatibility)
-        query.$or = [
-          { cities: cityId },
-          { cities: { $exists: false } },
-          { cities: { $size: 0 } }
-        ];
+        // Find ONLY categories that have this city in their cities array
+        // No backward compatibility - only show explicitly assigned categories
+        query.cities = cityId;
       }
     }
     
@@ -67,24 +62,11 @@ exports.getNestedCategories = async (req, res) => {
     const productQuery = { inStock: true, stock: { $gt: 0 } };
     
     if (cityFilter) {
-      // Include items with this city OR empty cities array (backward compatibility)
-      categoryQuery.$or = [
-        { cities: cityFilter },
-        { cities: { $exists: false } },
-        { cities: { $size: 0 } }
-      ];
-      
-      subCategoryQuery.$or = [
-        { cities: cityFilter },
-        { cities: { $exists: false } },
-        { cities: { $size: 0 } }
-      ];
-      
-      productQuery.$or = [
-        { cities: cityFilter },
-        { cities: { $exists: false } },
-        { cities: { $size: 0 } }
-      ];
+      // Find ONLY items that have this city in their cities array
+      // No backward compatibility - only show explicitly assigned items
+      categoryQuery.cities = cityFilter;
+      subCategoryQuery.cities = cityFilter;
+      productQuery.cities = cityFilter;
     }
     
     // 1. Fetch all main categories, sub-categories, and products in parallel

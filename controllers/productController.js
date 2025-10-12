@@ -31,14 +31,9 @@ const getAllProducts = async (req, res) => {
       }
       
       if (cityId) {
-        // Find products that either:
-        // 1. Have this city in their cities array, OR
-        // 2. Have an empty cities array (backward compatibility)
-        query.$or = [
-          { cities: cityId },
-          { cities: { $exists: false } },
-          { cities: { $size: 0 } }
-        ];
+        // Find ONLY products that have this city in their cities array
+        // No backward compatibility - only show explicitly assigned products
+        query.cities = cityId;
       }
     }
 
@@ -123,11 +118,34 @@ const getAllProducts = async (req, res) => {
 const getProductsBySection = async (req, res) => {
   try {
     const { section } = req.params;
+    const { city } = req.query;
+    
     let query = {
       // Only show in-stock products
       inStock: true,
       stock: { $gt: 0 }
     };
+    
+    // Add city filter if provided
+    if (city) {
+      const City = require('../models/City');
+      let cityId = null;
+      
+      if (mongoose.Types.ObjectId.isValid(city)) {
+        cityId = city;
+      } else {
+        // Try to find city by name
+        const cityDoc = await City.findOne({ name: new RegExp(`^${city}$`, 'i') });
+        if (cityDoc) {
+          cityId = cityDoc._id;
+        }
+      }
+      
+      if (cityId) {
+        // Find ONLY products that have this city in their cities array
+        query.cities = cityId;
+      }
+    }
     
     switch(section) {
       case 'bestsellers':
