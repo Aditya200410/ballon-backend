@@ -88,14 +88,8 @@ const getAllProducts = async (req, res) => {
       }
     }
 
-    // Pagination logic
-    const currentPage = page && !isNaN(parseInt(page)) ? Math.max(1, parseInt(page)) : 1;
-    const productLimit = limit && !isNaN(parseInt(limit)) ? parseInt(limit) : 50;
-    const skip = (currentPage - 1) * productLimit;
-
-    // Get total count for pagination
+    // Get total count
     const totalCount = await Product.countDocuments(query);
-    const totalPages = Math.ceil(totalCount / productLimit);
 
     let dbQuery = Product.find(query)
       .populate('category', 'name slug')
@@ -108,20 +102,36 @@ const getAllProducts = async (req, res) => {
       dbQuery = dbQuery.sort({ date: -1 });
     }
 
-    // Apply pagination
-    dbQuery = dbQuery.skip(skip).limit(productLimit);
+    // Apply pagination only if page or limit parameters are provided
+    if (page || limit) {
+      const currentPage = page && !isNaN(parseInt(page)) ? Math.max(1, parseInt(page)) : 1;
+      const productLimit = limit && !isNaN(parseInt(limit)) ? parseInt(limit) : 50;
+      const skip = (currentPage - 1) * productLimit;
+      const totalPages = Math.ceil(totalCount / productLimit);
 
+      dbQuery = dbQuery.skip(skip).limit(productLimit);
+
+      const products = await dbQuery.exec();
+
+      // Return products with pagination metadata
+      return res.json({
+        products,
+        total: totalCount,
+        pagination: {
+          total: totalCount,
+          page: currentPage,
+          limit: productLimit,
+          totalPages
+        }
+      });
+    }
+
+    // No pagination - return all products
     const products = await dbQuery.exec();
 
-    // Return products with pagination metadata
     res.json({
       products,
-      pagination: {
-        total: totalCount,
-        page: currentPage,
-        limit: productLimit,
-        totalPages
-      }
+      total: totalCount
     });
   } catch (error) {
     console.error('Error fetching products:', error);
