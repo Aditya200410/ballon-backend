@@ -98,7 +98,7 @@ const createFeaturedProductWithFiles = async (req, res) => {
     }
 
     // Additional images
-    for (let i = 1; i <= 3; i++) {
+    for (let i = 1; i <= 9; i++) {
       if (files[`image${i}`] && files[`image${i}`][0]) {
         const imageUrl = files[`image${i}`][0].path; // Cloudinary URL
         imagePaths.push(imageUrl);
@@ -186,7 +186,7 @@ const updateFeaturedProductWithFiles = async (req, res) => {
     }
 
     // Handle additional images
-    for (let i = 1; i <= 3; i++) {
+    for (let i = 1; i <= 9; i++) {
       if (files[`image${i}`] && files[`image${i}`][0]) {
         const imageUrl = files[`image${i}`][0].path;
         if (i < imagePaths.length) {

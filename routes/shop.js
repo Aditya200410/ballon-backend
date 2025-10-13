@@ -32,12 +32,18 @@ const storage = new CloudinaryStorage({
 
 const upload = multer({ storage: storage });
 
-// Upload multiple images (main image + 3 additional images)
+// Upload multiple images (main image + 9 additional images)
 const uploadImages = upload.fields([
   { name: 'mainImage', maxCount: 1 },
   { name: 'image1', maxCount: 1 },
   { name: 'image2', maxCount: 1 },
-  { name: 'image3', maxCount: 1 }
+  { name: 'image3', maxCount: 1 },
+  { name: 'image4', maxCount: 1 },
+  { name: 'image5', maxCount: 1 },
+  { name: 'image6', maxCount: 1 },
+  { name: 'image7', maxCount: 1 },
+  { name: 'image8', maxCount: 1 },
+  { name: 'image9', maxCount: 1 }
 ]);
 
 // Middleware to handle multer upload

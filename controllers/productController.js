@@ -287,7 +287,7 @@ const createProductWithFiles = async (req, res) => {
     if (files.mainImage && files.mainImage[0]) {
       imagePaths.push(files.mainImage[0].path);
     }
-    for (let i = 1; i <= 3; i++) {
+    for (let i = 1; i <= 9; i++) {
       if (files[`image${i}`] && files[`image${i}`][0]) {
         imagePaths.push(files[`image${i}`][0].path);
       }
@@ -392,7 +392,7 @@ const updateProductWithFiles = async (req, res) => {
       imagePaths[0] = files.mainImage[0].path;
     }
 
-    for (let i = 1; i <= 3; i++) {
+    for (let i = 1; i <= 9; i++) {
       if (files[`image${i}`] && files[`image${i}`][0]) {
         imagePaths[i] = files[`image${i}`][0].path;
       }
