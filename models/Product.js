@@ -29,6 +29,8 @@ const productSchema = new mongoose.Schema({
   
   utility: { type: String, required: true, trim: true },
   care: { type: String, required: true, trim: true },
+  included: [{ type: String, trim: true }],
+  excluded: [{ type: String, trim: true }],
   price: { type: Number, required: true },
   regularPrice: { type: Number, required: true },
   image: { type: String, required: true },

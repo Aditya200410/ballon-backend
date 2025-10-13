@@ -252,7 +252,7 @@ const createProductWithFiles = async (req, res) => {
     
     const requiredFields = [
       "name", "material", "size", "colour", 
-      "category", "utility", "care", "price", "regularPrice"
+      "category", "utility", "price", "regularPrice"
     ];
 
     const missingFields = requiredFields.filter(field => !productData[field]);
@@ -305,6 +305,8 @@ const createProductWithFiles = async (req, res) => {
     
       utility: productData.utility,
       care: productData.care,
+      included: productData.included ? JSON.parse(productData.included) : [],
+      excluded: productData.excluded ? JSON.parse(productData.excluded) : [],
       price: parseFloat(productData.price),
       regularPrice: parseFloat(productData.regularPrice),
       image: imagePaths[0],
@@ -408,6 +410,8 @@ const updateProductWithFiles = async (req, res) => {
    
       utility: productData.utility || existingProduct.utility,
       care: productData.care || existingProduct.care,
+      included: productData.included ? JSON.parse(productData.included) : existingProduct.included,
+      excluded: productData.excluded ? JSON.parse(productData.excluded) : existingProduct.excluded,
       price: productData.price ? parseFloat(productData.price) : existingProduct.price,
       regularPrice: productData.regularPrice ? parseFloat(productData.regularPrice) : existingProduct.regularPrice,
       image: imagePaths[0],
