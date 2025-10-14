@@ -11,6 +11,11 @@ const CitySchema = new mongoose.Schema({
         type: String,
         default: 'Bihar'
     },
+    contactNumber: {
+        type: String,
+        default: '+917739873442',
+        trim: true
+    },
     isActive: {
         type: Boolean,
         default: true

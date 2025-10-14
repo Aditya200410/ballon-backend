@@ -32,8 +32,8 @@ exports.getCities = async (req, res) => {
 
 exports.addCity = async (req, res) => {
     try {
-        const { name, state } = req.body;
-        const city = new City({ name, state });
+        const { name, state, contactNumber } = req.body;
+        const city = new City({ name, state, contactNumber });
         await city.save();
         res.status(201).json({ city });
     } catch (err) {
@@ -52,10 +52,13 @@ exports.deleteCity = async (req, res) => {
 
 exports.updateCity = async (req, res) => {
     try {
-        const { name, state, isActive } = req.body;
+        const { name, state, isActive, contactNumber } = req.body;
         const updateData = { name, state };
         if (isActive !== undefined) {
             updateData.isActive = isActive;
+        }
+        if (contactNumber !== undefined) {
+            updateData.contactNumber = contactNumber;
         }
         const city = await City.findByIdAndUpdate(req.params.id, updateData, { new: true });
         res.json({ city });
