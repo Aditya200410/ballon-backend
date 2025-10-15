@@ -24,6 +24,7 @@ const settingsController = require('./controllers/settingsController');
 const app = express();
 const subCategoryRoutes = require('./routes/subCategoryRoutes'); // Adjust path if needed
 const blogRoutes = require('./routes/blog');
+const videoRoutes = require('./routes/video');
 
 
 // Generate a random JWT secret for seller authentication if not provided
@@ -164,6 +165,7 @@ app.use('/api/msg91', require('./routes/msg91'));
 app.use('/api/pin-code-service-fees', require('./routes/pinCodeServiceFee'));
 app.use('/api/blog', blogRoutes);
 app.use('/api/addons', require('./routes/addon'));
+app.use('/api/videos', require('./routes/video'));
 // This handles requests like GET /api/categories/:id/subcategories
 app.use('/api/categories', subCategoryRoutes); 
 
