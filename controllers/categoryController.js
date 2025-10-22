@@ -1,6 +1,44 @@
 const Category = require('../models/Category');
 
 const SubCategory = require('../models/SubCategory');
+
+// Get all categories for admin (including inactive ones)
+exports.getAllCategoriesAdmin = async (req, res) => {
+  try {
+    const { city } = req.query;
+    const query = {}; // No isActive filter for admin - show all categories
+    
+    // If city provided, filter by city (with backward compatibility)
+    if (city) {
+      const City = require('../models/City');
+      const mongoose = require('mongoose');
+      let cityId = null;
+      
+      if (mongoose.Types.ObjectId.isValid(city)) {
+        cityId = city;
+      } else {
+        // Try to find city by name
+        const cityDoc = await City.findOne({ name: new RegExp(`^${city}$`, 'i') });
+        if (cityDoc) {
+          cityId = cityDoc._id;
+        }
+      }
+      
+      if (cityId) {
+        // Find ONLY categories that have this city in their cities array
+        // No backward compatibility - only show explicitly assigned categories
+        query.cities = cityId;
+      }
+    }
+    
+    const categories = await Category.find(query).sort({ sortOrder: 1, name: 1 });
+    res.json({ categories });
+  } catch (error) {
+    console.error('Error in getAllCategoriesAdmin:', error);
+    res.status(500).json({ message: 'Error fetching categories' });
+  }
+};
+
 // Get all categories (with optional city filter)
 exports.getAllCategories = async (req, res) => {
   try {
@@ -228,14 +266,19 @@ exports.updateCategory = async (req, res) => {
       image: imageUrl,
       video: videoUrl,
       sortOrder: categoryData.sortOrder ? parseInt(categoryData.sortOrder) : existingCategory.sortOrder,
-      isActive: categoryData.isActive !== undefined ? (categoryData.isActive === 'true') : existingCategory.isActive
+      isActive: categoryData.isActive !== undefined ? 
+        (typeof categoryData.isActive === 'boolean' ? categoryData.isActive : categoryData.isActive === 'true') 
+        : existingCategory.isActive
     };
 
     console.log('Updating category with data:', {
       id,
       imageUrl,
       videoUrl,
-      filesReceived: req.files ? Object.keys(req.files) : 'none'
+      filesReceived: req.files ? Object.keys(req.files) : 'none',
+      isActiveReceived: categoryData.isActive,
+      isActiveType: typeof categoryData.isActive,
+      isActiveFinal: updatedCategory.isActive
     });
 
     const savedCategory = await Category.findByIdAndUpdate(id, updatedCategory, { new: true });

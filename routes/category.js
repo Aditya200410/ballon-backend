@@ -55,6 +55,9 @@ router.get('/', categoryController.getAllCategories);
 router.get('/nested', categoryController.getNestedCategories);
 router.get('/:id', categoryController.getCategory);
 
+// Admin routes - get all categories (including inactive)
+router.get('/admin/all', authenticateToken, isAdmin, categoryController.getAllCategoriesAdmin);
+
 // Protected admin routes with file upload
 router.post('/', authenticateToken, isAdmin, handleUpload, categoryController.createCategory);
 router.post('/upload', authenticateToken, isAdmin, handleUpload, categoryController.createCategory);

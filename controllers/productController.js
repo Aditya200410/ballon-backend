@@ -40,6 +40,11 @@ const getAllProducts = async (req, res) => {
     // If category provided, try to handle both ObjectId and name (case-insensitive)
     if (category) {
       if (mongoose.Types.ObjectId.isValid(category)) {
+        // Verify the category is active before allowing products to be shown
+        const catDoc = await Category.findById(category);
+        if (!catDoc || !catDoc.isActive) {
+          return res.json({ products: [], pagination: { total: 0, page: 1, limit: 50, totalPages: 0 } });
+        }
         query.category = category;
       } else {
         // First try to find category by name or slug
@@ -47,7 +52,8 @@ const getAllProducts = async (req, res) => {
           $or: [
             { name: new RegExp(`^${category}$`, 'i') },
             { slug: category.toLowerCase() }
-          ]
+          ],
+          isActive: true // Only find active categories
         });
         
         if (catDoc) {
@@ -55,10 +61,15 @@ const getAllProducts = async (req, res) => {
           // Note: We don't need to verify category-city match here because
           // the product query already handles city filtering with backward compatibility
         } else {
-          // Category not found
+          // Category not found or inactive
           return res.json({ products: [], pagination: { total: 0, page: 1, limit: 50, totalPages: 0 } });
         }
       }
+    } else {
+      // If no specific category is requested, only show products from active categories
+      const activeCategories = await Category.find({ isActive: true }).select('_id');
+      const activeCategoryIds = activeCategories.map(cat => cat._id);
+      query.category = { $in: activeCategoryIds };
     }
 
     // If subCategory provided, support both id and name. subCategory is stored as ObjectId in Product.

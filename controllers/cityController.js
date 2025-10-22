@@ -85,7 +85,15 @@ exports.toggleCityStatus = async (req, res) => {
 // Get products for a specific city
 exports.getCityProducts = async (req, res) => {
     try {
-        const products = await Product.find({ cities: req.params.id })
+        // First get all active categories
+        const Category = require('../models/Category');
+        const activeCategories = await Category.find({ isActive: true }).select('_id');
+        const activeCategoryIds = activeCategories.map(cat => cat._id);
+        
+        const products = await Product.find({ 
+            cities: req.params.id,
+            category: { $in: activeCategoryIds } // Only show products from active categories
+        })
             .populate('category', 'name')
             .populate('subCategory', 'name')
             .sort({ date: -1 });
