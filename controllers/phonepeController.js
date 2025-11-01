@@ -69,6 +69,12 @@ async function getPhonePeToken() {
     }
   } catch (error) {
     console.error('PhonePe OAuth token error:', error.response?.data || error.message);
+    
+    // Provide more specific error message for INVALID_CLIENT
+    if (error.response?.data?.code === 'INVALID_CLIENT') {
+      throw new Error('PhonePe credentials are invalid or not configured. Please check your PHONEPE_CLIENT_ID and PHONEPE_CLIENT_SECRET environment variables.');
+    }
+    
     throw new Error('Failed to get PhonePe OAuth token');
   }
 }
@@ -95,6 +101,15 @@ exports.createPhonePeOrder = async (req, res) => {
     const env = process.env.PHONEPE_ENV || 'sandbox';
     const frontendUrl = process.env.FRONTEND_URL;
     const backendUrl = process.env.BACKEND_URL;
+
+    // Check PhonePe credentials first
+    if (!process.env.PHONEPE_CLIENT_ID || !process.env.PHONEPE_CLIENT_SECRET) {
+      console.error('PhonePe credentials not configured');
+      return res.status(500).json({
+        success: false,
+        message: 'Payment gateway not configured. Please contact support.',
+      });
+    }
 
     // Enhanced validation
     if (!frontendUrl || !backendUrl) {
@@ -147,7 +162,7 @@ exports.createPhonePeOrder = async (req, res) => {
     // Based on: https://developer.phonepe.com/v1/reference/create-payment-standard-checkout
     const baseUrl = env === 'production' 
       ? 'https://api.phonepe.com/apis/pg'
-      : '	https://api-preprod.phonepe.com/apis/pg-sandbox';
+      : 'https://api-preprod.phonepe.com/apis/pg-sandbox';
 
     const apiEndpoint = '/checkout/v2/pay';
 

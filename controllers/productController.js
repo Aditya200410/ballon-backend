@@ -83,35 +83,244 @@ const getAllProducts = async (req, res) => {
       }
     }
 
-    // Handle search with MongoDB text search (much faster with indexes)
+    // Handle search with improved individual word matching and fuzzy search
     if (search && search.trim()) {
       const searchTerm = search.trim();
       
-      // Use MongoDB text search for better performance with indexes
-      // Text search is much faster than regex for large datasets
-      query.$text = { $search: searchTerm };
+      // Split search term into individual words for better matching
+      const searchWords = searchTerm.split(/\s+/).filter(word => word.length > 0);
       
-      // Note: When using $text, we need to handle existing filters differently
-      // MongoDB doesn't support complex $and with $text, so we keep it simple
-      if (category || subCategory) {
-        // If there are other filters, they'll be combined naturally
-        // as separate fields in the query object
-      }
+      // Create regex patterns for fuzzy matching (allows for partial matches)
+      const regexPatterns = searchWords.map(word => 
+        new RegExp(word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i')
+      );
+      
+      // Build search conditions for multiple fields
+      const searchConditions = [];
+      
+      // Search in product name (highest priority)
+      searchConditions.push({
+        name: { $regex: searchTerm, $options: 'i' }
+      });
+      
+      // Search in material field
+      searchConditions.push({
+        material: { $regex: searchTerm, $options: 'i' }
+      });
+      
+      // Search in colour field
+      searchConditions.push({
+        colour: { $regex: searchTerm, $options: 'i' }
+      });
+      
+      // Search in utility field
+      searchConditions.push({
+        utility: { $regex: searchTerm, $options: 'i' }
+      });
+      
+      // Search in size field
+      searchConditions.push({
+        size: { $regex: searchTerm, $options: 'i' }
+      });
+      
+      // Also search in category and subcategory names (populated fields)
+      // This will be handled in the aggregation pipeline
+      
+      // Use $or to match any of the search conditions
+      query.$or = searchConditions;
     }
 
-    // Get total count
-    const totalCount = await Product.countDocuments(query);
-
-    let dbQuery = Product.find(query)
-      .populate('category', 'name slug')
-      .populate('subCategory', 'name slug');
+    // Use aggregation pipeline for better search with category matching and relevance scoring
+    let aggregationPipeline = [];
     
-    // Sort by relevance if text search is used, otherwise by date
+    // Match stage with base query
+    aggregationPipeline.push({ $match: query });
+    
+    // Lookup stages for category and subcategory
+    aggregationPipeline.push({
+      $lookup: {
+        from: 'categories',
+        localField: 'category',
+        foreignField: '_id',
+        as: 'categoryInfo'
+      }
+    });
+    
+    aggregationPipeline.push({
+      $lookup: {
+        from: 'subcategories',
+        localField: 'subCategory',
+        foreignField: '_id',
+        as: 'subCategoryInfo'
+      }
+    });
+    
+    // Add category and subcategory names for search
+    aggregationPipeline.push({
+      $addFields: {
+        categoryName: { $arrayElemAt: ['$categoryInfo.name', 0] },
+        subCategoryName: { $arrayElemAt: ['$subCategoryInfo.name', 0] }
+      }
+    });
+    
+    // If search is active, add category and subcategory search and relevance scoring
     if (search && search.trim()) {
-      dbQuery = dbQuery.sort({ score: { $meta: 'textScore' }, date: -1 });
-    } else {
-      dbQuery = dbQuery.sort({ date: -1 });
+      const searchWords = search.trim().split(/\s+/).filter(word => word.length > 0);
+      const regexPatterns = searchWords.map(word => 
+        new RegExp(word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i')
+      );
+      
+      // Add category and subcategory search conditions
+      const categorySearchConditions = [
+        {
+          categoryName: { $regex: searchTerm, $options: 'i' }
+        },
+        {
+          subCategoryName: { $regex: searchTerm, $options: 'i' }
+        }
+      ];
+      
+      // Add category search to the main query
+      query.$or = query.$or ? [...query.$or, ...categorySearchConditions] : categorySearchConditions;
+      
+      // Add relevance scoring
+      aggregationPipeline.push({
+        $addFields: {
+          relevanceScore: {
+            $add: [
+              // Name matches (highest weight)
+              {
+                $multiply: [
+                  {
+                    $size: {
+                      $filter: {
+                        input: searchWords,
+                        cond: { $regexMatch: { input: '$name', regex: { $concat: ['(?i)', '$$this'] } } }
+                      }
+                    }
+                  },
+                  10
+                ]
+              },
+              // Category matches
+              {
+                $multiply: [
+                  {
+                    $size: {
+                      $filter: {
+                        input: searchWords,
+                        cond: { $regexMatch: { input: '$categoryName', regex: { $concat: ['(?i)', '$$this'] } } }
+                      }
+                    }
+                  },
+                  8
+                ]
+              },
+              // Subcategory matches
+              {
+                $multiply: [
+                  {
+                    $size: {
+                      $filter: {
+                        input: searchWords,
+                        cond: { $regexMatch: { input: '$subCategoryName', regex: { $concat: ['(?i)', '$$this'] } } }
+                      }
+                    }
+                  },
+                  6
+                ]
+              },
+              // Material matches
+              {
+                $multiply: [
+                  {
+                    $size: {
+                      $filter: {
+                        input: searchWords,
+                        cond: { $regexMatch: { input: '$material', regex: { $concat: ['(?i)', '$$this'] } } }
+                      }
+                    }
+                  },
+                  4
+                ]
+              },
+              // Colour matches
+              {
+                $multiply: [
+                  {
+                    $size: {
+                      $filter: {
+                        input: searchWords,
+                        cond: { $regexMatch: { input: '$colour', regex: { $concat: ['(?i)', '$$this'] } } }
+                      }
+                    }
+                  },
+                  3
+                ]
+              },
+              // Utility matches
+              {
+                $multiply: [
+                  {
+                    $size: {
+                      $filter: {
+                        input: searchWords,
+                        cond: { $regexMatch: { input: '$utility', regex: { $concat: ['(?i)', '$$this'] } } }
+                      }
+                    }
+                  },
+                  2
+                ]
+              }
+            ]
+          }
+        }
+      });
     }
+    
+    // Project stage to clean up the data
+    aggregationPipeline.push({
+      $project: {
+        _id: 1,
+        name: 1,
+        material: 1,
+        size: 1,
+        colour: 1,
+        utility: 1,
+        care: 1,
+        included: 1,
+        excluded: 1,
+        price: 1,
+        regularPrice: 1,
+        image: 1,
+        images: 1,
+        inStock: 1,
+        stock: 1,
+        isBestSeller: 1,
+        isTrending: 1,
+        isMostLoved: 1,
+        rating: 1,
+        reviews: 1,
+        codAvailable: 1,
+        cities: 1,
+        date: 1,
+        category: { $arrayElemAt: ['$categoryInfo', 0] },
+        subCategory: { $arrayElemAt: ['$subCategoryInfo', 0] },
+        relevanceScore: { $ifNull: ['$relevanceScore', 0] }
+      }
+    });
+    
+    // Sort stage
+    if (search && search.trim()) {
+      aggregationPipeline.push({ $sort: { relevanceScore: -1, date: -1 } });
+    } else {
+      aggregationPipeline.push({ $sort: { date: -1 } });
+    }
+    
+    // Get total count for pagination
+    const totalCountPipeline = [...aggregationPipeline, { $count: 'total' }];
+    const totalCountResult = await Product.aggregate(totalCountPipeline);
+    const totalCount = totalCountResult.length > 0 ? totalCountResult[0].total : 0;
 
     // Apply pagination only if page or limit parameters are provided
     if (page || limit) {
@@ -120,9 +329,11 @@ const getAllProducts = async (req, res) => {
       const skip = (currentPage - 1) * productLimit;
       const totalPages = Math.ceil(totalCount / productLimit);
 
-      dbQuery = dbQuery.skip(skip).limit(productLimit);
+      // Add pagination to aggregation pipeline
+      aggregationPipeline.push({ $skip: skip });
+      aggregationPipeline.push({ $limit: productLimit });
 
-      const products = await dbQuery.exec();
+      const products = await Product.aggregate(aggregationPipeline);
 
       // Return products with pagination metadata
       return res.json({
@@ -138,7 +349,7 @@ const getAllProducts = async (req, res) => {
     }
 
     // No pagination - return all products
-    const products = await dbQuery.exec();
+    const products = await Product.aggregate(aggregationPipeline);
 
     res.json({
       products,
@@ -147,6 +358,216 @@ const getAllProducts = async (req, res) => {
   } catch (error) {
     console.error('Error fetching products:', error);
     res.status(500).json({ message: "Error fetching products", error: error.message });
+  }
+};
+
+// Get search suggestions with categories and products
+const getSearchSuggestions = async (req, res) => {
+  try {
+    const { q: query, city, limit = 10 } = req.query;
+    
+    if (!query || query.trim().length < 2) {
+      return res.json({ suggestions: [], categories: [], products: [] });
+    }
+
+    const searchTerm = query.trim();
+    const searchWords = searchTerm.split(/\s+/).filter(word => word.length > 0);
+    const regexPatterns = searchWords.map(word => 
+      new RegExp(word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i')
+    );
+
+    // Base query for products
+    const productQuery = {
+      inStock: true,
+      stock: { $gt: 0 }
+    };
+
+    // Add city filter if provided
+    if (city) {
+      const City = require('../models/City');
+      let cityId = null;
+      
+      if (mongoose.Types.ObjectId.isValid(city)) {
+        cityId = city;
+      } else {
+        const cityDoc = await City.findOne({ name: new RegExp(`^${city}$`, 'i') });
+        if (cityDoc) {
+          cityId = cityDoc._id;
+        }
+      }
+      
+      if (cityId) {
+        productQuery.cities = cityId;
+      }
+    }
+
+    // Search conditions for products
+    const productSearchConditions = [
+      { name: { $regex: searchTerm, $options: 'i' } },
+      { material: { $regex: searchTerm, $options: 'i' } },
+      { colour: { $regex: searchTerm, $options: 'i' } },
+      { utility: { $regex: searchTerm, $options: 'i' } },
+      { size: { $regex: searchTerm, $options: 'i' } }
+    ];
+
+    productQuery.$or = productSearchConditions;
+
+    // Get matching products with aggregation
+    const productPipeline = [
+      { $match: productQuery },
+      {
+        $lookup: {
+          from: 'categories',
+          localField: 'category',
+          foreignField: '_id',
+          as: 'categoryInfo'
+        }
+      },
+      {
+        $lookup: {
+          from: 'subcategories',
+          localField: 'subCategory',
+          foreignField: '_id',
+          as: 'subCategoryInfo'
+        }
+      },
+      {
+        $addFields: {
+          categoryName: { $arrayElemAt: ['$categoryInfo.name', 0] },
+          subCategoryName: { $arrayElemAt: ['$subCategoryInfo.name', 0] }
+        }
+      },
+      {
+        $addFields: {
+          relevanceScore: {
+            $add: [
+              {
+                $multiply: [
+                  {
+                    $size: {
+                      $filter: {
+                        input: searchWords,
+                        cond: { $regexMatch: { input: '$name', regex: { $concat: ['(?i)', '$$this'] } } }
+                      }
+                    }
+                  },
+                  10
+                ]
+              },
+              {
+                $multiply: [
+                  {
+                    $size: {
+                      $filter: {
+                        input: searchWords,
+                        cond: { $regexMatch: { input: '$categoryName', regex: { $concat: ['(?i)', '$$this'] } } }
+                      }
+                    }
+                  },
+                  8
+                ]
+              },
+              {
+                $multiply: [
+                  {
+                    $size: {
+                      $filter: {
+                        input: searchWords,
+                        cond: { $regexMatch: { input: '$subCategoryName', regex: { $concat: ['(?i)', '$$this'] } } }
+                      }
+                    }
+                  },
+                  6
+                ]
+              }
+            ]
+          }
+        }
+      },
+      {
+        $project: {
+          _id: 1,
+          name: 1,
+          price: 1,
+          image: 1,
+          category: { $arrayElemAt: ['$categoryInfo', 0] },
+          subCategory: { $arrayElemAt: ['$subCategoryInfo', 0] },
+          relevanceScore: 1
+        }
+      },
+      { $sort: { relevanceScore: -1, date: -1 } },
+      { $limit: parseInt(limit) }
+    ];
+
+    // Get matching categories
+    const categoryQuery = { isActive: true };
+    if (city) {
+      const City = require('../models/City');
+      let cityId = null;
+      
+      if (mongoose.Types.ObjectId.isValid(city)) {
+        cityId = city;
+      } else {
+        const cityDoc = await City.findOne({ name: new RegExp(`^${city}$`, 'i') });
+        if (cityDoc) {
+          cityId = cityDoc._id;
+        }
+      }
+      
+      if (cityId) {
+        categoryQuery.cities = cityId;
+      }
+    }
+
+    const categorySearchConditions = [
+      { name: { $regex: searchTerm, $options: 'i' } },
+      { description: { $regex: searchTerm, $options: 'i' } }
+    ];
+
+    categoryQuery.$or = categorySearchConditions;
+
+    // Execute queries in parallel
+    const [products, categories] = await Promise.all([
+      Product.aggregate(productPipeline),
+      Category.find(categoryQuery).select('name description image').limit(5)
+    ]);
+
+    // Create suggestions array
+    const suggestions = [];
+    
+    // Add category suggestions
+    categories.forEach(category => {
+      suggestions.push({
+        type: 'category',
+        id: category._id,
+        name: category.name,
+        description: category.description,
+        image: category.image
+      });
+    });
+
+    // Add product suggestions
+    products.forEach(product => {
+      suggestions.push({
+        type: 'product',
+        id: product._id,
+        name: product.name,
+        price: product.price,
+        image: product.image,
+        category: product.category?.name,
+        subCategory: product.subCategory?.name
+      });
+    });
+
+    res.json({
+      suggestions: suggestions.slice(0, parseInt(limit)),
+      categories: categories,
+      products: products
+    });
+
+  } catch (error) {
+    console.error('Error fetching search suggestions:', error);
+    res.status(500).json({ message: "Error fetching search suggestions", error: error.message });
   }
 };
 
@@ -527,6 +948,7 @@ const deleteProduct = async (req, res) => {
 
 module.exports = {
   getAllProducts,
+  getSearchSuggestions,
   getProductsBySection,
   getProduct,
   createProductWithFiles,

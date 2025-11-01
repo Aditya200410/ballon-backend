@@ -510,5 +510,39 @@
     "updatedAt": "2025-10-08T09:48:53.345Z",
     "__v": 0,
     "id": "68e63385833b563e03932ac6"
+  },
+  {
+    "customOrderId": "decorationcelebration4",
+    "customerName": "the one who know infinity",
+    "email": "lightyagami98k@gmail.com",
+    "phone": "09114703231",
+    "address": {
+      "street": "Burla",
+      "pincode": "768018",
+      "country": "India"
+    },
+    "scheduledDelivery": null,
+    "items": [
+      {
+        "productId": "68dc3c5effaf1ee188238117",
+        "name": "Office decoration",
+        "price": 999,
+        "quantity": 1,
+        "image": "https://res.cloudinary.com/drztexsbw/image/upload/v1759263838/pawnshop-products/qimsfbghqaentpghbhgj.webp"
+      }
+    ],
+    "addOns": [],
+    "totalAmount": 1099,
+    "paymentMethod": "cod",
+    "orderStatus": "processing",
+    "paymentStatus": "pending",
+    "upfrontAmount": 0,
+    "remainingAmount": 1099,
+    "commission": 0,
+    "_id": "6904e47e238e39b53cdf3385",
+    "createdAt": "2025-10-31T16:31:58.758Z",
+    "updatedAt": "2025-10-31T16:31:58.758Z",
+    "__v": 0,
+    "id": "6904e47e238e39b53cdf3385"
   }
 ]

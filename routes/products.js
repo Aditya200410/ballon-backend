@@ -7,6 +7,7 @@ const cloudinary = require('cloudinary').v2;
 const { isAdmin, authenticateToken } = require('../middleware/auth');
 const {
   getAllProducts,
+  getSearchSuggestions,
   getProduct,
   createProductWithFiles,
   updateProductWithFiles,
@@ -69,6 +70,7 @@ const handleUpload = (req, res, next) => {
 
 // Public routes
 router.get("/", getAllProducts);
+router.get("/search/suggestions", getSearchSuggestions);
 router.get("/section/:section", getProductsBySection);
 router.get("/:id", getProduct);
 
