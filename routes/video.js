@@ -79,7 +79,7 @@ router.post('/upload', authenticateToken, isAdmin, (req, res) => {
 
       console.log('Video uploaded successfully:', req.file);
 
-      const baseUrl = process.env.BACKEND_URL || `${req.protocol}://${req.get('host')}`;
+      const baseUrl = process.env.BACKEND_URL || 'https://api.decoryy.com';
       const videoUrl = `${baseUrl}/decoryy/data/videos/${req.file.filename}`;
 
       res.json({

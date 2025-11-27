@@ -99,7 +99,7 @@ const handleMultipleImages = (req, res, next) => {
 
     // Transform paths to URLs
     if (req.files && req.files.length > 0) {
-      const baseUrl = process.env.BACKEND_URL || `${req.protocol}://${req.get('host')}`;
+      const baseUrl = process.env.BACKEND_URL || 'https://api.decoryy.com';
       req.files.forEach(file => {
         file.path = `${baseUrl}/decoryy/data/seller-images/${file.filename}`;
       });
@@ -132,7 +132,7 @@ const handleProfileImage = (req, res, next) => {
 
     // Transform path to URL
     if (req.file) {
-      const baseUrl = process.env.BACKEND_URL || `${req.protocol}://${req.get('host')}`;
+      const baseUrl = process.env.BACKEND_URL || 'https://api.decoryy.com';
       req.file.path = `${baseUrl}/decoryy/data/seller-profiles/${req.file.filename}`;
     }
 

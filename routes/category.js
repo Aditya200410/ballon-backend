@@ -62,7 +62,7 @@ const handleUpload = (req, res, next) => {
 // Middleware to transform local paths to URLs
 const transformPathsToUrls = (req, res, next) => {
   if (req.files) {
-    const baseUrl = process.env.BACKEND_URL || `${req.protocol}://${req.get('host')}`;
+    const baseUrl = process.env.BACKEND_URL || 'https://api.decoryy.com';
 
     Object.keys(req.files).forEach(key => {
       req.files[key].forEach(file => {
