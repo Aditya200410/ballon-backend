@@ -1,48 +1,40 @@
 const multer = require('multer');
-const { CloudinaryStorage } = require('multer-storage-cloudinary');
-const cloudinary = require('cloudinary').v2;
+const path = require('path');
+const fs = require('fs');
 
-// Check if Cloudinary credentials are available
-const hasCloudinaryCredentials = process.env.CLOUDINARY_CLOUD_NAME && 
-                                process.env.CLOUDINARY_API_KEY && 
-                                process.env.CLOUDINARY_API_SECRET;
+// Ensure upload directories exist
+const sellerImagesDir = path.join(__dirname, '../data/seller-images');
+const sellerProfilesDir = path.join(__dirname, '../data/seller-profiles');
 
-if (hasCloudinaryCredentials) {
-  // Configure Cloudinary
-  cloudinary.config({
-    cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-    api_key: process.env.CLOUDINARY_API_KEY,
-    api_secret: process.env.CLOUDINARY_API_SECRET
-  });
-} else {
-  console.warn('Cloudinary credentials not found. Image uploads will be disabled.');
-}
+[sellerImagesDir, sellerProfilesDir].forEach(dir => {
+  if (!fs.existsSync(dir)) {
+    fs.mkdirSync(dir, { recursive: true });
+  }
+});
 
 // Configure storage for multiple images
-const storage = hasCloudinaryCredentials ? new CloudinaryStorage({
-  cloudinary: cloudinary,
-  params: {
-    folder: 'seller-images',
-    allowed_formats: ['jpg', 'jpeg', 'png', 'gif', 'webp'],
-    transformation: [
-      { width: 800, height: 600, crop: 'fill' },
-      { quality: 'auto' }
-    ]
+const storage = multer.diskStorage({
+  destination: function (req, file, cb) {
+    cb(null, sellerImagesDir);
+  },
+  filename: function (req, file, cb) {
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    const ext = path.extname(file.originalname);
+    cb(null, 'seller-img-' + uniqueSuffix + ext);
   }
-}) : multer.memoryStorage();
+});
 
 // Configure storage for profile image
-const profileStorage = hasCloudinaryCredentials ? new CloudinaryStorage({
-  cloudinary: cloudinary,
-  params: {
-    folder: 'seller-profiles',
-    allowed_formats: ['jpg', 'jpeg', 'png', 'gif', 'webp'],
-    transformation: [
-      { width: 400, height: 400, crop: 'fill' },
-      { quality: 'auto' }
-    ]
+const profileStorage = multer.diskStorage({
+  destination: function (req, file, cb) {
+    cb(null, sellerProfilesDir);
+  },
+  filename: function (req, file, cb) {
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    const ext = path.extname(file.originalname);
+    cb(null, 'seller-profile-' + uniqueSuffix + ext);
   }
-}) : multer.memoryStorage();
+});
 
 // Multer configuration for multiple images
 const uploadMultipleImages = multer({
@@ -80,12 +72,6 @@ const uploadProfileImage = multer({
 
 // Middleware for handling multiple image uploads
 const handleMultipleImages = (req, res, next) => {
-  if (!hasCloudinaryCredentials) {
-    // Skip image upload if Cloudinary is not configured
-    req.files = [];
-    return next();
-  }
-
   uploadMultipleImages(req, res, (err) => {
     if (err instanceof multer.MulterError) {
       if (err.code === 'LIMIT_FILE_SIZE') {
@@ -110,18 +96,21 @@ const handleMultipleImages = (req, res, next) => {
         message: err.message
       });
     }
+
+    // Transform paths to URLs
+    if (req.files && req.files.length > 0) {
+      const baseUrl = process.env.BACKEND_URL || `${req.protocol}://${req.get('host')}`;
+      req.files.forEach(file => {
+        file.path = `${baseUrl}/decoryy/data/seller-images/${file.filename}`;
+      });
+    }
+
     next();
   });
 };
 
 // Middleware for handling profile image upload
 const handleProfileImage = (req, res, next) => {
-  if (!hasCloudinaryCredentials) {
-    // Skip image upload if Cloudinary is not configured
-    req.file = null;
-    return next();
-  }
-
   uploadProfileImage(req, res, (err) => {
     if (err instanceof multer.MulterError) {
       if (err.code === 'LIMIT_FILE_SIZE') {
@@ -140,6 +129,13 @@ const handleProfileImage = (req, res, next) => {
         message: err.message
       });
     }
+
+    // Transform path to URL
+    if (req.file) {
+      const baseUrl = process.env.BACKEND_URL || `${req.protocol}://${req.get('host')}`;
+      req.file.path = `${baseUrl}/decoryy/data/seller-profiles/${req.file.filename}`;
+    }
+
     next();
   });
 };
@@ -147,5 +143,5 @@ const handleProfileImage = (req, res, next) => {
 module.exports = {
   handleMultipleImages,
   handleProfileImage,
-  cloudinary: hasCloudinaryCredentials ? cloudinary : null
+  cloudinary: null
 }; 

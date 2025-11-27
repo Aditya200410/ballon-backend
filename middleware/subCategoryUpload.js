@@ -1,36 +1,24 @@
 const multer = require('multer');
-const { CloudinaryStorage } = require('multer-storage-cloudinary');
-const cloudinary = require('cloudinary').v2;
+const path = require('path');
+const fs = require('fs');
 
-// Check if Cloudinary credentials are available
-const hasCloudinaryCredentials = process.env.CLOUDINARY_CLOUD_NAME && 
-                                process.env.CLOUDINARY_API_KEY && 
-                                process.env.CLOUDINARY_API_SECRET;
-
-if (hasCloudinaryCredentials) {
-  // Configure Cloudinary
-  cloudinary.config({
-    cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-    api_key: process.env.CLOUDINARY_API_KEY,
-    api_secret: process.env.CLOUDINARY_API_SECRET
-  });
-} else {
-  console.warn('Cloudinary credentials not found. Subcategory image uploads will be disabled.');
+// Ensure upload directory exists
+const uploadDir = path.join(__dirname, '../data/subcategories');
+if (!fs.existsSync(uploadDir)) {
+  fs.mkdirSync(uploadDir, { recursive: true });
 }
 
 // Configure storage for subcategory images
-const storage = hasCloudinaryCredentials ? new CloudinaryStorage({
-  cloudinary: cloudinary,
-  params: {
-    folder: 'subcategories',
-    allowed_formats: ['jpg', 'jpeg', 'png', 'gif', 'webp', 'mp4'],
-    resource_type: 'auto',
-    transformation: [
-      { width: 400, height: 400, crop: 'fill' },
-      { quality: 'auto' }
-    ]
+const storage = multer.diskStorage({
+  destination: function (req, file, cb) {
+    cb(null, uploadDir);
+  },
+  filename: function (req, file, cb) {
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    const ext = path.extname(file.originalname);
+    cb(null, 'subcat-' + uniqueSuffix + ext);
   }
-}) : multer.memoryStorage();
+});
 
 // Multer configuration for subcategory image upload
 const uploadSubCategoryImage = multer({
@@ -51,12 +39,6 @@ const uploadSubCategoryImage = multer({
 
 // Middleware for handling subcategory image upload
 const handleSubCategoryImage = (req, res, next) => {
-  if (!hasCloudinaryCredentials) {
-    // Skip image upload if Cloudinary is not configured
-    req.file = null;
-    return next();
-  }
-
   uploadSubCategoryImage(req, res, (err) => {
     if (err instanceof multer.MulterError) {
       if (err.code === 'LIMIT_FILE_SIZE') {
@@ -75,11 +57,18 @@ const handleSubCategoryImage = (req, res, next) => {
         message: err.message
       });
     }
+
+    // Transform path to URL
+    if (req.file) {
+      const baseUrl = process.env.BACKEND_URL || `${req.protocol}://${req.get('host')}`;
+      req.file.path = `${baseUrl}/decoryy/data/subcategories/${req.file.filename}`;
+    }
+
     next();
   });
 };
 
 module.exports = {
   handleSubCategoryImage,
-  cloudinary: hasCloudinaryCredentials ? cloudinary : null
+  cloudinary: null
 };

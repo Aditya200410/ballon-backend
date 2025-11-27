@@ -1,8 +1,8 @@
 const express = require('express');
 const router = express.Router();
 const multer = require('multer');
-const { CloudinaryStorage } = require('multer-storage-cloudinary');
-const cloudinary = require('cloudinary').v2;
+const path = require('path');
+const fs = require('fs');
 const { isAdmin, authenticateToken } = require('../middleware/auth');
 const {
   getAllVideos,
@@ -13,21 +13,21 @@ const {
   getVideosByCategory
 } = require('../controllers/videoController');
 
-// Configure Cloudinary
-cloudinary.config({
-  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-  api_key: process.env.CLOUDINARY_API_KEY,
-  api_secret: process.env.CLOUDINARY_API_SECRET
-});
+// Ensure upload directory exists
+const uploadDir = path.join(__dirname, '../data/videos');
+if (!fs.existsSync(uploadDir)) {
+  fs.mkdirSync(uploadDir, { recursive: true });
+}
 
 // Configure storage for videos
-const storage = new CloudinaryStorage({
-  cloudinary: cloudinary,
-  params: {
-    folder: 'videos',
-    resource_type: 'auto', // Let Cloudinary auto-detect video files
-    allowed_formats: ['mp4', 'mov', 'avi', 'wmv', 'flv', 'webm'],
-    transformation: [{ quality: 'auto' }]
+const storage = multer.diskStorage({
+  destination: function (req, file, cb) {
+    cb(null, uploadDir);
+  },
+  filename: function (req, file, cb) {
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    const ext = path.extname(file.originalname);
+    cb(null, 'video-' + uniqueSuffix + ext);
   }
 });
 
@@ -36,6 +36,13 @@ const upload = multer({
   storage: storage,
   limits: {
     fileSize: 1000 * 1024 * 1024 // 1000MB limit for videos
+  },
+  fileFilter: (req, file, cb) => {
+    if (file.mimetype.startsWith('video/')) {
+      cb(null, true);
+    } else {
+      cb(new Error('Only video files are allowed!'), false);
+    }
   }
 });
 
@@ -57,7 +64,7 @@ router.post('/upload', authenticateToken, isAdmin, (req, res) => {
       if (err instanceof multer.MulterError) {
         console.error('Multer error:', err);
         if (err.code === 'LIMIT_FILE_SIZE') {
-          return res.status(400).json({ error: 'File too large. Maximum size is 100MB.' });
+          return res.status(400).json({ error: 'File too large. Maximum size is 1000MB.' });
         }
         return res.status(400).json({ error: 'File upload error', details: err.message });
       } else if (err) {
@@ -69,11 +76,14 @@ router.post('/upload', authenticateToken, isAdmin, (req, res) => {
       if (!req.file) {
         return res.status(400).json({ error: 'No video file uploaded' });
       }
-      
+
       console.log('Video uploaded successfully:', req.file);
-      
-      res.json({ 
-        videoUrl: req.file.path,
+
+      const baseUrl = process.env.BACKEND_URL || `${req.protocol}://${req.get('host')}`;
+      const videoUrl = `${baseUrl}/decoryy/data/videos/${req.file.filename}`;
+
+      res.json({
+        videoUrl: videoUrl,
         publicId: req.file.filename,
         size: req.file.size,
         originalName: req.file.originalname

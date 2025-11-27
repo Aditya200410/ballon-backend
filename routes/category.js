@@ -1,34 +1,43 @@
 const express = require('express');
 const router = express.Router();
 const multer = require('multer');
-const cloudinary = require('cloudinary').v2;
-const { CloudinaryStorage } = require('multer-storage-cloudinary');
+const path = require('path');
+const fs = require('fs');
 const { isAdmin, authenticateToken } = require('../middleware/auth');
 const categoryController = require('../controllers/categoryController');
 
 const SubCategory = require('../models/SubCategory');
-// Cloudinary config
-cloudinary.config({
-  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-  api_key: process.env.CLOUDINARY_API_KEY,
-  api_secret: process.env.CLOUDINARY_API_SECRET,
-});
 
-// Multer storage for Cloudinary
-const storage = new CloudinaryStorage({
-  cloudinary: cloudinary,
-  params: {
-    folder: 'decoryy-categories',
-    allowed_formats: ['jpg', 'jpeg', 'png', 'webp', 'mp4', 'webm', 'ogg'],
-    transformation: [{ width: 800, height: 800, crop: 'limit' }],
-    resource_type: 'auto', // This allows both images and videos
+// Ensure upload directory exists
+const uploadDir = path.join(__dirname, '../data/categories');
+if (!fs.existsSync(uploadDir)) {
+  fs.mkdirSync(uploadDir, { recursive: true });
+}
+
+// Configure storage
+const storage = multer.diskStorage({
+  destination: function (req, file, cb) {
+    cb(null, uploadDir);
   },
+  filename: function (req, file, cb) {
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    const ext = path.extname(file.originalname);
+    cb(null, 'category-' + uniqueSuffix + ext);
+  }
 });
 
-const upload = multer({ 
+const upload = multer({
   storage: storage,
   limits: {
     fileSize: 50 * 1024 * 1024 // 50MB limit for videos
+  },
+  fileFilter: (req, file, cb) => {
+    // Accept images and videos
+    if (file.mimetype.startsWith('image/') || file.mimetype.startsWith('video/')) {
+      cb(null, true);
+    } else {
+      cb(new Error('Only image and video files are allowed!'), false);
+    }
   }
 });
 
@@ -40,7 +49,7 @@ const uploadFiles = upload.fields([
 
 // Middleware to handle multer upload
 const handleUpload = (req, res, next) => {
-  uploadFiles(req, res, function(err) {
+  uploadFiles(req, res, function (err) {
     if (err instanceof multer.MulterError) {
       return res.status(400).json({ error: 'File upload error', details: err.message });
     } else if (err) {
@@ -48,6 +57,22 @@ const handleUpload = (req, res, next) => {
     }
     next();
   });
+};
+
+// Middleware to transform local paths to URLs
+const transformPathsToUrls = (req, res, next) => {
+  if (req.files) {
+    const baseUrl = process.env.BACKEND_URL || `${req.protocol}://${req.get('host')}`;
+
+    Object.keys(req.files).forEach(key => {
+      req.files[key].forEach(file => {
+        // Convert absolute path to URL
+        const filename = file.filename;
+        file.path = `${baseUrl}/decoryy/data/categories/${filename}`;
+      });
+    });
+  }
+  next();
 };
 
 // Public routes
@@ -59,11 +84,11 @@ router.get('/:id', categoryController.getCategory);
 router.get('/admin/all', authenticateToken, isAdmin, categoryController.getAllCategoriesAdmin);
 
 // Protected admin routes with file upload
-router.post('/', authenticateToken, isAdmin, handleUpload, categoryController.createCategory);
-router.post('/upload', authenticateToken, isAdmin, handleUpload, categoryController.createCategory);
+router.post('/', authenticateToken, isAdmin, handleUpload, transformPathsToUrls, categoryController.createCategory);
+router.post('/upload', authenticateToken, isAdmin, handleUpload, transformPathsToUrls, categoryController.createCategory);
 router.post('/update-order', authenticateToken, isAdmin, categoryController.updateCategoryOrder);
-router.put('/:id', authenticateToken, isAdmin, handleUpload, categoryController.updateCategory);
-router.put('/:id/upload', authenticateToken, isAdmin, handleUpload, categoryController.updateCategory);
+router.put('/:id', authenticateToken, isAdmin, handleUpload, transformPathsToUrls, categoryController.updateCategory);
+router.put('/:id/upload', authenticateToken, isAdmin, handleUpload, transformPathsToUrls, categoryController.updateCategory);
 router.delete('/:id', authenticateToken, isAdmin, categoryController.deleteCategory);
 
 module.exports = router; 

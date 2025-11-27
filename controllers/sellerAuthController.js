@@ -5,12 +5,12 @@ const { v4: uuidv4 } = require('uuid');
 
 exports.register = async (req, res) => {
   try {
-    const { 
-      businessName, 
-      email, 
-      password, 
-      phone, 
-      address, 
+    const {
+      businessName,
+      email,
+      password,
+      phone,
+      address,
       businessType,
       location,
       startingPrice,
@@ -54,8 +54,8 @@ exports.register = async (req, res) => {
       }));
     }
 
-   
-  
+
+
     // Process included, excluded, and faq
     const processIncludedExcluded = (data) => {
       if (!data) return [];
@@ -355,7 +355,8 @@ exports.uploadProfileImage = async (req, res) => {
 exports.deleteImage = async (req, res) => {
   try {
     const { imageId } = req.params;
-    const { cloudinary } = require('../middleware/sellerUpload');
+    const fs = require('fs');
+    const path = require('path');
 
     // Find the image in the seller's images array
     const seller = await Seller.findById(req.seller.id);
@@ -368,13 +369,16 @@ exports.deleteImage = async (req, res) => {
       });
     }
 
-    // Delete from Cloudinary if available
-    if (cloudinary) {
-      try {
-        await cloudinary.uploader.destroy(image.public_id);
-      } catch (cloudinaryError) {
-        console.error('Cloudinary delete error:', cloudinaryError);
-        // Continue with database deletion even if Cloudinary fails
+    // Delete local file if it exists
+    if (image.public_id) {
+      // Assuming public_id stores the filename for local uploads
+      const filePath = path.join(__dirname, '../data/seller-images', image.public_id);
+      if (fs.existsSync(filePath)) {
+        try {
+          fs.unlinkSync(filePath);
+        } catch (err) {
+          console.error('Error deleting local file:', err);
+        }
       }
     }
 
@@ -399,7 +403,8 @@ exports.deleteImage = async (req, res) => {
 exports.deleteImageAdmin = async (req, res) => {
   try {
     const { sellerId, imageId } = req.params;
-    const { cloudinary } = require('../middleware/sellerUpload');
+    const fs = require('fs');
+    const path = require('path');
 
     // Find the seller by ID
     const seller = await Seller.findById(sellerId);
@@ -419,13 +424,15 @@ exports.deleteImageAdmin = async (req, res) => {
       });
     }
 
-    // Delete from Cloudinary if available
-    if (cloudinary) {
-      try {
-        await cloudinary.uploader.destroy(image.public_id);
-      } catch (cloudinaryError) {
-        console.error('Cloudinary delete error:', cloudinaryError);
-        // Continue with database deletion even if Cloudinary fails
+    // Delete local file if it exists
+    if (image.public_id) {
+      const filePath = path.join(__dirname, '../data/seller-images', image.public_id);
+      if (fs.existsSync(filePath)) {
+        try {
+          fs.unlinkSync(filePath);
+        } catch (err) {
+          console.error('Error deleting local file:', err);
+        }
       }
     }
 
@@ -450,7 +457,8 @@ exports.deleteImageAdmin = async (req, res) => {
 exports.deleteProfileImageAdmin = async (req, res) => {
   try {
     const { sellerId } = req.params;
-    const { cloudinary } = require('../middleware/sellerUpload');
+    const fs = require('fs');
+    const path = require('path');
 
     // Find the seller by ID
     const seller = await Seller.findById(sellerId);
@@ -468,13 +476,15 @@ exports.deleteProfileImageAdmin = async (req, res) => {
       });
     }
 
-    // Delete from Cloudinary if available
-    if (cloudinary && seller.profileImage.public_id) {
-      try {
-        await cloudinary.uploader.destroy(seller.profileImage.public_id);
-      } catch (cloudinaryError) {
-        console.error('Cloudinary delete error:', cloudinaryError);
-        // Continue with database deletion even if Cloudinary fails
+    // Delete local file if it exists
+    if (seller.profileImage.public_id) {
+      const filePath = path.join(__dirname, '../data/seller-profiles', seller.profileImage.public_id);
+      if (fs.existsSync(filePath)) {
+        try {
+          fs.unlinkSync(filePath);
+        } catch (err) {
+          console.error('Error deleting local file:', err);
+        }
       }
     }
 
@@ -494,22 +504,21 @@ exports.deleteProfileImageAdmin = async (req, res) => {
     });
   }
 };
-
 // Get all sellers (for admin panel)
 exports.getAllSellers = async (req, res) => {
   try {
     console.log('=== GET ALL SELLERS REQUEST ===');
     console.log('Request headers:', req.headers);
     console.log('Request user:', req.user);
-    
+
     const sellers = await Seller.find({}, '-password');
     console.log('Found sellers count:', sellers.length);
-    
-   
+
+
     console.log('=== SELLERS WITH WITHDRAWALS ===');
     sellers.forEach(seller => {
       console.log(`Seller: ${seller.businessName}`);
-      
+
     });
 
     res.json({
@@ -530,15 +539,15 @@ exports.getAllSellers = async (req, res) => {
 exports.getApprovedVenues = async (req, res) => {
   try {
     console.log('=== GET APPROVED VENUES REQUEST ===');
-    
+
     const venues = await Seller.find(
-      { 
-        approved: true, 
-        blocked: false 
-      }, 
+      {
+        approved: true,
+        blocked: false
+      },
       '-password -email -phone -address -description -amenity -totalHalls -enquiryDetails -bookingOpens -workingTimes -workingDates -foodType -roomsAvailable -bookingPolicy -additionalFeatures -createdAt -updatedAt -__v'
     );
-    
+
     console.log('Found approved venues count:', venues.length);
 
     res.json({
@@ -559,7 +568,7 @@ exports.getApprovedVenues = async (req, res) => {
 exports.updateUniqueFields = async (req, res) => {
   try {
     const { email } = req.query;
-    
+
     if (!email) {
       return res.status(400).json({
         success: false,
@@ -578,7 +587,7 @@ exports.updateUniqueFields = async (req, res) => {
 
     // Generate unique fields if they don't exist
     if (!seller.sellerToken || !seller.websiteLink) {
-    
+
       const updatedSeller = await Seller.findByIdAndUpdate(
         seller._id,
         { sellerToken, websiteLink },
@@ -641,7 +650,7 @@ exports.test = async (req, res) => {
       2: 'connecting',
       3: 'disconnecting'
     };
-    
+
     res.json({
       success: true,
       message: 'Seller controller is working',
@@ -667,21 +676,21 @@ exports.getSellerById = async (req, res) => {
     const seller = await Seller.findById(req.params.id).select('-password');
 
     if (!seller) {
-      return res.status(404).json({ 
-        success: false, 
-        message: 'Seller not found' 
+      return res.status(404).json({
+        success: false,
+        message: 'Seller not found'
       });
     }
 
-    res.status(200).json({ 
-      success: true, 
-      seller: seller 
+    res.status(200).json({
+      success: true,
+      seller: seller
     });
   } catch (error) {
     console.error('Error fetching seller by ID:', error);
-    res.status(500).json({ 
-      success: false, 
-      message: 'Server error' 
+    res.status(500).json({
+      success: false,
+      message: 'Server error'
     });
   }
 };
@@ -742,7 +751,7 @@ exports.deleteSeller = async (req, res) => {
 exports.updateSellerProfile = async (req, res) => {
   try {
     const { id } = req.params;
-    
+
     // Process uploaded images
     let images = [];
     if (req.files && req.files.length > 0) {
@@ -778,7 +787,7 @@ exports.updateSellerProfile = async (req, res) => {
     const processFaqField = () => {
       console.log('Processing FAQ field:', req.body.faq);
       console.log('FAQ type:', typeof req.body.faq);
-      
+
       if (req.body.faq) {
         if (Array.isArray(req.body.faq)) {
           console.log('FAQ is array:', req.body.faq);
@@ -866,16 +875,16 @@ exports.updateSellerProfile = async (req, res) => {
     console.error('Update seller profile error:', error);
     console.error('Error details:', error.message);
     console.error('Validation errors:', error.errors);
-    
+
     if (error.name === 'ValidationError') {
       const validationErrors = Object.values(error.errors).map(err => err.message);
-      return res.status(400).json({ 
-        success: false, 
-        message: 'Validation error', 
-        errors: validationErrors 
+      return res.status(400).json({
+        success: false,
+        message: 'Validation error',
+        errors: validationErrors
       });
     }
-    
+
     res.status(500).json({ success: false, message: 'Error updating seller profile', error: error.message });
   }
 };
@@ -884,7 +893,7 @@ exports.updateSellerProfile = async (req, res) => {
 exports.incrementViews = async (req, res) => {
   try {
     const { id } = req.params;
-    
+
     const seller = await Seller.findByIdAndUpdate(
       id,
       { $inc: { views: 1 } },
@@ -892,23 +901,23 @@ exports.incrementViews = async (req, res) => {
     ).select('views businessName');
 
     if (!seller) {
-      return res.status(404).json({ 
-        success: false, 
-        message: 'Seller not found' 
+      return res.status(404).json({
+        success: false,
+        message: 'Seller not found'
       });
     }
 
-    res.json({ 
-      success: true, 
+    res.json({
+      success: true,
       message: 'View count updated successfully',
       views: seller.views,
       sellerName: seller.businessName
     });
   } catch (error) {
     console.error('Increment views error:', error);
-    res.status(500).json({ 
-      success: false, 
-      message: 'Error updating view count' 
+    res.status(500).json({
+      success: false,
+      message: 'Error updating view count'
     });
   }
 };

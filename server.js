@@ -39,7 +39,7 @@ const allowedOrigins = [
   'http://localhost:5174',
 
   'http://localhost:5175', // Backend port (for testing)
-'https://www.decoryy.com',
+  'https://www.decoryy.com',
   'https://ballon-frontend.vercel.app',
   'https://ballon-admin-beta.vercel.app',
   'https://admin.decoryy.com'
@@ -49,13 +49,13 @@ const allowedOrigins = [
 
 app.use(cors({
   origin: function (origin, callback) {
-    
+
     if (!origin) {
       console.log('No origin header, allowing request');
       return callback(null, true);
     }
     if (allowedOrigins.includes(origin)) {
-   
+
       callback(null, true);
     } else {
       console.log('CORS blocked origin:', origin);
@@ -115,10 +115,10 @@ const userProductDir = path.join(dataDir, 'userproduct');
 });
 
 // Serve static files with proper MIME types
-app.use('/pawnbackend/data', (req, res, next) => {
+app.use('/decoryy/data', (req, res, next) => {
   const filePath = path.join(__dirname, 'data', req.path);
   const ext = path.extname(filePath).toLowerCase();
-  
+
   // Set proper content type for videos and images
   if (ext === '.mp4') {
     res.setHeader('Content-Type', 'video/mp4');
@@ -129,7 +129,7 @@ app.use('/pawnbackend/data', (req, res, next) => {
   } else if (ext === '.gif') {
     res.setHeader('Content-Type', 'image/gif');
   }
-  
+
   next();
 }, express.static(path.join(__dirname, 'data'), {
   fallthrough: true,
@@ -167,7 +167,7 @@ app.use('/api/blog', blogRoutes);
 app.use('/api/addons', require('./routes/addon'));
 app.use('/api/videos', require('./routes/video'));
 // This handles requests like GET /api/categories/:id/subcategories
-app.use('/api/categories', subCategoryRoutes); 
+app.use('/api/categories', subCategoryRoutes);
 
 // This handles requests like PUT /api/subcategories/:id
 app.use('/api', subCategoryRoutes); // A bit broad, but will work.
@@ -193,12 +193,12 @@ app.get('/test-cors', (req, res) => {
 
 // Error handling middleware
 app.use((err, req, res, next) => {
-    console.error('Error:', err);
-    console.error('Stack:', err.stack);
-    res.status(500).json({ 
-        message: 'Something went wrong!',
-        error: process.env.NODE_ENV === 'development' ? err.message : 'Internal server error'
-    });
+  console.error('Error:', err);
+  console.error('Stack:', err.stack);
+  res.status(500).json({
+    message: 'Something went wrong!',
+    error: process.env.NODE_ENV === 'development' ? err.message : 'Internal server error'
+  });
 });
 
 // Port from environment variable
@@ -216,7 +216,7 @@ async function startServer() {
       socketTimeoutMS: 45000,
     });
     console.log("MongoDB connected successfully to:", MONGODB_URI);
-    
+
     // Initialize default settings after DB connection
     try {
       await settingsController.initializeDefaultSettings();
@@ -224,7 +224,7 @@ async function startServer() {
     } catch (error) {
       console.error('Failed to initialize default settings:', error);
     }
-    
+
     // Now start the server
     app.listen(PORT, () => {
       console.log(`Server is running on port ${PORT}`);
@@ -238,7 +238,7 @@ async function startServer() {
 }
 
 // Start the server
-startServer(); 
+startServer();
 
 
 

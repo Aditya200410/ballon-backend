@@ -1,8 +1,8 @@
 const express = require("express");
 const router = express.Router();
 const multer = require('multer');
-const { CloudinaryStorage } = require('multer-storage-cloudinary');
-const cloudinary = require('cloudinary').v2;
+const path = require('path');
+const fs = require('fs');
 const { isAdmin, authenticateToken } = require('../middleware/auth');
 const {
   getAllFeaturedProducts,
@@ -12,21 +12,21 @@ const {
   deleteFeaturedProduct
 } = require('../controllers/featuredProductController');
 
-// Configure Cloudinary
-cloudinary.config({
-  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-  api_key: process.env.CLOUDINARY_API_KEY,
-  api_secret: process.env.CLOUDINARY_API_SECRET
-});
+// Ensure upload directory exists
+const uploadDir = path.join(__dirname, '../data/featured-products');
+if (!fs.existsSync(uploadDir)) {
+  fs.mkdirSync(uploadDir, { recursive: true });
+}
 
 // Configure storage
-const storage = new CloudinaryStorage({
-  cloudinary: cloudinary,
-  params: {
-    folder: 'featured-products',
-    allowed_formats: ['jpg', 'jpeg', 'png', 'webp'],
-    transformation: [{ width: 800, height: 800, crop: 'limit' }],
-    resource_type: 'auto'
+const storage = multer.diskStorage({
+  destination: function (req, file, cb) {
+    cb(null, uploadDir);
+  },
+  filename: function (req, file, cb) {
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    const ext = path.extname(file.originalname);
+    cb(null, 'featured-' + uniqueSuffix + ext);
   }
 });
 
@@ -35,6 +35,13 @@ const upload = multer({
   storage: storage,
   limits: {
     fileSize: 10 * 1024 * 1024 // 10MB limit
+  },
+  fileFilter: (req, file, cb) => {
+    if (file.mimetype.startsWith('image/')) {
+      cb(null, true);
+    } else {
+      cb(new Error('Only image files are allowed!'), false);
+    }
   }
 });
 
@@ -54,7 +61,7 @@ const uploadFields = upload.fields([
 
 // Middleware to handle multer upload
 const handleUpload = (req, res, next) => {
-  uploadFields(req, res, function(err) {
+  uploadFields(req, res, function (err) {
     if (err instanceof multer.MulterError) {
       return res.status(400).json({ error: 'File upload error', details: err.message });
     } else if (err) {
@@ -64,13 +71,29 @@ const handleUpload = (req, res, next) => {
   });
 };
 
+// Middleware to transform local paths to URLs
+const transformPathsToUrls = (req, res, next) => {
+  if (req.files) {
+    const baseUrl = process.env.BACKEND_URL || `${req.protocol}://${req.get('host')}`;
+
+    Object.keys(req.files).forEach(key => {
+      req.files[key].forEach(file => {
+        // Convert absolute path to URL
+        const filename = file.filename;
+        file.path = `${baseUrl}/decoryy/data/featured-products/${filename}`;
+      });
+    });
+  }
+  next();
+};
+
 // Public routes
 router.get("/", getAllFeaturedProducts);
 router.get("/:id", getFeaturedProduct);
 
 // Admin routes
-router.post("/", authenticateToken, isAdmin, handleUpload, createFeaturedProductWithFiles);
-router.put("/:id", authenticateToken, isAdmin, handleUpload, updateFeaturedProductWithFiles);
+router.post("/", authenticateToken, isAdmin, handleUpload, transformPathsToUrls, createFeaturedProductWithFiles);
+router.put("/:id", authenticateToken, isAdmin, handleUpload, transformPathsToUrls, updateFeaturedProductWithFiles);
 router.delete("/:id", authenticateToken, isAdmin, deleteFeaturedProduct);
 
 module.exports = router; 

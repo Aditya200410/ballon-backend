@@ -1,32 +1,40 @@
 const express = require('express');
 const router = express.Router();
 const multer = require('multer');
-const cloudinary = require('cloudinary').v2;
-const { CloudinaryStorage } = require('multer-storage-cloudinary');
+const path = require('path');
+const fs = require('fs');
 const addonController = require('../controllers/addonController');
 const { auth } = require('../middleware/auth');
 
-// Cloudinary config
-cloudinary.config({
-  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-  api_key: process.env.CLOUDINARY_API_KEY,
-  api_secret: process.env.CLOUDINARY_API_SECRET,
-});
+// Ensure upload directory exists
+const uploadDir = path.join(__dirname, '../data/addons');
+if (!fs.existsSync(uploadDir)) {
+  fs.mkdirSync(uploadDir, { recursive: true });
+}
 
-// Multer storage for Cloudinary
-const storage = new CloudinaryStorage({
-  cloudinary: cloudinary,
-  params: {
-    folder: 'addons',
-    allowed_formats: ['jpg', 'jpeg', 'png', 'webp', 'gif'],
-    transformation: [{ width: 800, height: 800, crop: 'limit' }],
+// Configure storage
+const storage = multer.diskStorage({
+  destination: function (req, file, cb) {
+    cb(null, uploadDir);
   },
+  filename: function (req, file, cb) {
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    const ext = path.extname(file.originalname);
+    cb(null, 'addon-' + uniqueSuffix + ext);
+  }
 });
 
-const upload = multer({ 
+const upload = multer({
   storage: storage,
   limits: {
     fileSize: 5 * 1024 * 1024 // 5MB limit
+  },
+  fileFilter: (req, file, cb) => {
+    if (file.mimetype.startsWith('image/')) {
+      cb(null, true);
+    } else {
+      cb(new Error('Only image files are allowed!'), false);
+    }
   }
 });
 
@@ -44,9 +52,12 @@ router.post('/upload', auth, upload.single('image'), (req, res) => {
       });
     }
 
+    const baseUrl = process.env.BACKEND_URL || `${req.protocol}://${req.get('host')}`;
+    const imageUrl = `${baseUrl}/decoryy/data/addons/${req.file.filename}`;
+
     res.status(200).json({
       success: true,
-      imageUrl: req.file.path
+      imageUrl: imageUrl
     });
   } catch (error) {
     console.error('Error uploading image:', error);
@@ -65,4 +76,3 @@ router.delete('/:id', auth, addonController.deleteAddon);
 router.patch('/:id/toggle-status', auth, addonController.toggleAddonStatus);
 
 module.exports = router;
-

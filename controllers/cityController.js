@@ -8,13 +8,13 @@ exports.getCities = async (req, res) => {
     try {
         // Check if request is from admin (has showAll query param)
         const showAll = req.query.showAll === 'true';
-        
+
         // For frontend, only show cities where isActive is not explicitly false
         // This handles legacy cities (undefined) and new cities (true)
         // For admin, show all cities
         const query = showAll ? {} : { isActive: { $ne: false } };
         const cities = await City.find(query).sort({ name: 1 });
-        
+
         // Get product count for each city
         const citiesWithCount = await Promise.all(cities.map(async (city) => {
             const productCount = await Product.countDocuments({ cities: city._id });
@@ -23,7 +23,7 @@ exports.getCities = async (req, res) => {
                 productCount
             };
         }));
-        
+
         res.json({ cities: citiesWithCount });
     } catch (err) {
         res.status(500).json({ error: 'Failed to fetch cities' });
@@ -89,8 +89,8 @@ exports.getCityProducts = async (req, res) => {
         const Category = require('../models/Category');
         const activeCategories = await Category.find({ isActive: true }).select('_id');
         const activeCategoryIds = activeCategories.map(cat => cat._id);
-        
-        const products = await Product.find({ 
+
+        const products = await Product.find({
             cities: req.params.id,
             category: { $in: activeCategoryIds } // Only show products from active categories
         })
@@ -108,13 +108,13 @@ exports.addProductsToCity = async (req, res) => {
     try {
         const { productIds } = req.body;
         const cityId = req.params.id;
-        
+
         // Add city to each product's cities array
         await Product.updateMany(
             { _id: { $in: productIds } },
             { $addToSet: { cities: cityId } }
         );
-        
+
         res.json({ success: true, message: 'Products added to city' });
     } catch (err) {
         res.status(400).json({ error: 'Failed to add products to city' });
@@ -126,13 +126,13 @@ exports.removeProductsFromCity = async (req, res) => {
     try {
         const { productIds } = req.body;
         const cityId = req.params.id;
-        
+
         // Remove city from each product's cities array
         await Product.updateMany(
             { _id: { $in: productIds } },
             { $pull: { cities: cityId } }
         );
-        
+
         res.json({ success: true, message: 'Products removed from city' });
     } catch (err) {
         res.status(400).json({ error: 'Failed to remove products from city' });
@@ -144,21 +144,21 @@ exports.importProductsFromCity = async (req, res) => {
     try {
         const { sourceCityId } = req.body;
         const targetCityId = req.params.id;
-        
+
         // Get all products from source city
         const sourceProducts = await Product.find({ cities: sourceCityId });
-        
+
         // Add target city to each product's cities array
         const productIds = sourceProducts.map(p => p._id);
         await Product.updateMany(
             { _id: { $in: productIds } },
             { $addToSet: { cities: targetCityId } }
         );
-        
-        res.json({ 
-            success: true, 
+
+        res.json({
+            success: true,
             message: `Imported ${productIds.length} products from source city`,
-            count: productIds.length 
+            count: productIds.length
         });
     } catch (err) {
         res.status(400).json({ error: 'Failed to import products' });
@@ -181,18 +181,18 @@ exports.addCategoriesToCity = async (req, res) => {
     try {
         const { categoryIds } = req.body;
         const cityId = req.params.id;
-        
+
         // Add categories to city
         await Category.updateMany(
             { _id: { $in: categoryIds } },
             { $addToSet: { cities: cityId } }
         );
-        
+
         // Automatically add all subcategories of these categories to the city
-        const subcategories = await SubCategory.find({ 
-            parentCategory: { $in: categoryIds } 
+        const subcategories = await SubCategory.find({
+            parentCategory: { $in: categoryIds }
         });
-        
+
         if (subcategories.length > 0) {
             const subCategoryIds = subcategories.map(sc => sc._id);
             await SubCategory.updateMany(
@@ -200,9 +200,9 @@ exports.addCategoriesToCity = async (req, res) => {
                 { $addToSet: { cities: cityId } }
             );
         }
-        
-        res.json({ 
-            success: true, 
+
+        res.json({
+            success: true,
             message: `Categories added to city (${subcategories.length} subcategories auto-imported)`,
             categoriesAdded: categoryIds.length,
             subCategoriesAdded: subcategories.length
@@ -217,18 +217,18 @@ exports.removeCategoriesFromCity = async (req, res) => {
     try {
         const { categoryIds } = req.body;
         const cityId = req.params.id;
-        
+
         // Remove categories from city
         await Category.updateMany(
             { _id: { $in: categoryIds } },
             { $pull: { cities: cityId } }
         );
-        
+
         // Automatically remove all subcategories of these categories from the city
-        const subcategories = await SubCategory.find({ 
-            parentCategory: { $in: categoryIds } 
+        const subcategories = await SubCategory.find({
+            parentCategory: { $in: categoryIds }
         });
-        
+
         if (subcategories.length > 0) {
             const subCategoryIds = subcategories.map(sc => sc._id);
             await SubCategory.updateMany(
@@ -236,9 +236,9 @@ exports.removeCategoriesFromCity = async (req, res) => {
                 { $pull: { cities: cityId } }
             );
         }
-        
-        res.json({ 
-            success: true, 
+
+        res.json({
+            success: true,
             message: `Categories removed from city (${subcategories.length} subcategories auto-removed)`,
             categoriesRemoved: categoryIds.length,
             subCategoriesRemoved: subcategories.length
@@ -265,12 +265,12 @@ exports.addSubCategoriesToCity = async (req, res) => {
     try {
         const { subCategoryIds } = req.body;
         const cityId = req.params.id;
-        
+
         await SubCategory.updateMany(
             { _id: { $in: subCategoryIds } },
             { $addToSet: { cities: cityId } }
         );
-        
+
         res.json({ success: true, message: 'Subcategories added to city' });
     } catch (err) {
         res.status(400).json({ error: 'Failed to add subcategories to city' });
@@ -282,12 +282,12 @@ exports.removeSubCategoriesFromCity = async (req, res) => {
     try {
         const { subCategoryIds } = req.body;
         const cityId = req.params.id;
-        
+
         await SubCategory.updateMany(
             { _id: { $in: subCategoryIds } },
             { $pull: { cities: cityId } }
         );
-        
+
         res.json({ success: true, message: 'Subcategories removed from city' });
     } catch (err) {
         res.status(400).json({ error: 'Failed to remove subcategories from city' });
@@ -310,12 +310,12 @@ exports.addCarouselItemsToCity = async (req, res) => {
     try {
         const { itemIds } = req.body;
         const cityId = req.params.id;
-        
+
         await HeroCarousel.updateMany(
             { _id: { $in: itemIds } },
             { $addToSet: { cities: cityId } }
         );
-        
+
         res.json({ success: true, message: 'Carousel items added to city' });
     } catch (err) {
         res.status(400).json({ error: 'Failed to add carousel items to city' });
@@ -327,12 +327,12 @@ exports.removeCarouselItemsFromCity = async (req, res) => {
     try {
         const { itemIds } = req.body;
         const cityId = req.params.id;
-        
+
         await HeroCarousel.updateMany(
             { _id: { $in: itemIds } },
             { $pull: { cities: cityId } }
         );
-        
+
         res.json({ success: true, message: 'Carousel items removed from city' });
     } catch (err) {
         res.status(400).json({ error: 'Failed to remove carousel items from city' });
@@ -344,7 +344,7 @@ exports.importAllFromCity = async (req, res) => {
     try {
         const { sourceCityId } = req.body;
         const targetCityId = req.params.id;
-        
+
         // Get all items from source city
         const [sourceProducts, sourceCategories, sourceSubCategories, sourceCarouselItems] = await Promise.all([
             Product.find({ cities: sourceCityId }),
@@ -352,7 +352,7 @@ exports.importAllFromCity = async (req, res) => {
             SubCategory.find({ cities: sourceCityId }),
             HeroCarousel.find({ cities: sourceCityId })
         ]);
-        
+
         // Add target city to all items
         await Promise.all([
             Product.updateMany(
@@ -372,9 +372,9 @@ exports.importAllFromCity = async (req, res) => {
                 { $addToSet: { cities: targetCityId } }
             )
         ]);
-        
-        res.json({ 
-            success: true, 
+
+        res.json({
+            success: true,
             message: 'Imported all content from source city',
             counts: {
                 products: sourceProducts.length,
@@ -394,7 +394,7 @@ exports.updateCityProduct = async (req, res) => {
         const cityId = req.params.cityId;
         const productId = req.params.productId;
         const updateData = req.body;
-        
+
         console.log('City Product Update - Request Data:', {
             cityId,
             productId,
@@ -402,26 +402,26 @@ exports.updateCityProduct = async (req, res) => {
             regularPrice: updateData.regularPrice,
             name: updateData.name
         });
-        
+
         // Get the existing product
         const existingProduct = await Product.findById(productId);
         if (!existingProduct) {
             return res.status(404).json({ error: 'Product not found' });
         }
-        
+
         console.log('Existing Product:', {
             name: existingProduct.name,
             price: existingProduct.price,
             regularPrice: existingProduct.regularPrice,
             citiesCount: existingProduct.cities ? existingProduct.cities.length : 0
         });
-        
+
         // Check if product exists in multiple cities
         const citiesCount = existingProduct.cities ? existingProduct.cities.length : 0;
-        
+
         if (citiesCount > 1) {
             // Product exists in multiple cities - create a city-specific copy
-            
+
             // Create a new product with the same data
             const newProductData = {
                 name: updateData.name || existingProduct.name,
@@ -429,8 +429,8 @@ exports.updateCityProduct = async (req, res) => {
                 size: updateData.size || existingProduct.size,
                 colour: updateData.colour || existingProduct.colour,
                 category: updateData.category || existingProduct.category,
-                subCategory: updateData.subCategory !== undefined ? 
-                    (updateData.subCategory === '' ? undefined : updateData.subCategory) : 
+                subCategory: updateData.subCategory !== undefined ?
+                    (updateData.subCategory === '' ? undefined : updateData.subCategory) :
                     existingProduct.subCategory,
                 utility: updateData.utility || existingProduct.utility,
                 care: updateData.care || existingProduct.care,
@@ -448,19 +448,19 @@ exports.updateCityProduct = async (req, res) => {
                 reviews: existingProduct.reviews,
                 cities: [cityId] // Only assign to the current city
             };
-            
+
             // Create the new product
             const newProduct = new Product(newProductData);
             await newProduct.save();
-            
+
             // Remove the city from the original product's cities array
             await Product.findByIdAndUpdate(
                 productId,
                 { $pull: { cities: cityId } }
             );
-            
-            res.json({ 
-                success: true, 
+
+            res.json({
+                success: true,
                 message: 'Product cloned and updated for this city only',
                 product: newProduct,
                 isNewProduct: true
@@ -473,8 +473,8 @@ exports.updateCityProduct = async (req, res) => {
                 size: updateData.size || existingProduct.size,
                 colour: updateData.colour || existingProduct.colour,
                 category: updateData.category || existingProduct.category,
-                subCategory: updateData.subCategory !== undefined ? 
-                    (updateData.subCategory === '' ? undefined : updateData.subCategory) : 
+                subCategory: updateData.subCategory !== undefined ?
+                    (updateData.subCategory === '' ? undefined : updateData.subCategory) :
                     existingProduct.subCategory,
                 utility: updateData.utility || existingProduct.utility,
                 care: updateData.care || existingProduct.care,
@@ -487,15 +487,15 @@ exports.updateCityProduct = async (req, res) => {
                 codAvailable: updateData.codAvailable !== undefined ? (updateData.codAvailable !== 'false' && updateData.codAvailable !== false) : existingProduct.codAvailable,
                 stock: updateData.stock !== undefined ? Number(updateData.stock) : existingProduct.stock
             };
-            
+
             const updatedProduct = await Product.findByIdAndUpdate(
                 productId,
                 updatedProductData,
                 { new: true }
             );
-            
-            res.json({ 
-                success: true, 
+
+            res.json({
+                success: true,
                 message: 'Product updated for this city',
                 product: updatedProduct,
                 isNewProduct: false
