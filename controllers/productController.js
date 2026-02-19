@@ -7,357 +7,96 @@ const path = require('path');
 // Get all products (supports optional query filters: category (name or id), subCategory (name or id), limit, search, city, page)
 const getAllProducts = async (req, res) => {
   try {
-    const { category, subCategory, limit, search, city, page } = req.query;
+    const { category, subCategory, limit, search, city, page, adminView } = req.query;
 
     // Base query: only show products that are in stock and have stock > 0
-    const query = {
+    // Admin can see everything
+    let query = (adminView === 'true' || adminView === true) ? {} : {
       inStock: true,
       stock: { $gt: 0 }
     };
 
-    // If city provided, filter by city (with backward compatibility)
-    if (city) {
-      const City = require('../models/City');
-      let cityId = null;
-      
+    // If city provided, filter by city
+    if (city && city !== 'null' && city !== 'undefined') {
+      const mongoose = require('mongoose');
       if (mongoose.Types.ObjectId.isValid(city)) {
-        cityId = city;
-      } else {
-        // Try to find city by name
-        const cityDoc = await City.findOne({ name: new RegExp(`^${city}$`, 'i') });
-        if (cityDoc) {
-          cityId = cityDoc._id;
-        }
-      }
-      
-      if (cityId) {
-        // Find ONLY products that have this city in their cities array
-        // No backward compatibility - only show explicitly assigned products
-        query.cities = cityId;
+        query.cities = city;
       }
     }
 
-    // If category provided, try to handle both ObjectId and name (case-insensitive)
+    // Handle search
+    if (search && search.trim()) {
+      query.name = new RegExp(search.trim(), 'i');
+    }
+
+    // Handle category
     if (category) {
+      const Category = require('../models/Category');
       if (mongoose.Types.ObjectId.isValid(category)) {
-        // Verify the category is active before allowing products to be shown
-        const catDoc = await Category.findById(category);
-        if (!catDoc || !catDoc.isActive) {
-          return res.json({ products: [], pagination: { total: 0, page: 1, limit: 50, totalPages: 0 } });
-        }
         query.category = category;
       } else {
-        // First try to find category by name or slug
-        const catDoc = await Category.findOne({ 
-          $or: [
-            { name: new RegExp(`^${category}$`, 'i') },
-            { slug: category.toLowerCase() }
-          ],
-          isActive: true // Only find active categories
-        });
-        
-        if (catDoc) {
-          query.category = catDoc._id;
-          // Note: We don't need to verify category-city match here because
-          // the product query already handles city filtering with backward compatibility
-        } else {
-          // Category not found or inactive
-          return res.json({ products: [], pagination: { total: 0, page: 1, limit: 50, totalPages: 0 } });
-        }
+        const cat = await Category.findOne({ name: new RegExp(`^${category}$`, 'i') });
+        if (cat) query.category = cat._id;
       }
-    } else {
-      // If no specific category is requested, only show products from active categories
-      const activeCategories = await Category.find({ isActive: true }).select('_id');
-      const activeCategoryIds = activeCategories.map(cat => cat._id);
-      query.category = { $in: activeCategoryIds };
     }
 
-    // If subCategory provided, support both id and name. subCategory is stored as ObjectId in Product.
+    // Handle subCategory
     if (subCategory) {
       if (mongoose.Types.ObjectId.isValid(subCategory)) {
         query.subCategory = subCategory;
-      } else {
-        // try to find SubCategory by name — using SubCategory model if available
-        // Fallback: attempt to match subCategory name stored as string (in case of legacy data)
-        query['subCategory.name'] = new RegExp(`^${subCategory}$`, 'i');
       }
     }
 
-    // Handle search with improved individual word matching and fuzzy search
-    if (search && search.trim()) {
-      const searchTerm = search.trim();
-      
-      // Split search term into individual words for better matching
-      const searchWords = searchTerm.split(/\s+/).filter(word => word.length > 0);
-      
-      // Create regex patterns for fuzzy matching (allows for partial matches)
-      const regexPatterns = searchWords.map(word => 
-        new RegExp(word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i')
-      );
-      
-      // Build search conditions for multiple fields
-      const searchConditions = [];
-      
-      // Search in product name (highest priority)
-      searchConditions.push({
-        name: { $regex: searchTerm, $options: 'i' }
-      });
-      
-      // Search in material field
-      searchConditions.push({
-        material: { $regex: searchTerm, $options: 'i' }
-      });
-      
-      // Search in colour field
-      searchConditions.push({
-        colour: { $regex: searchTerm, $options: 'i' }
-      });
-      
-      // Search in utility field
-      searchConditions.push({
-        utility: { $regex: searchTerm, $options: 'i' }
-      });
-      
-      // Search in size field
-      searchConditions.push({
-        size: { $regex: searchTerm, $options: 'i' }
-      });
-      
-      // Also search in category and subcategory names (populated fields)
-      // This will be handled in the aggregation pipeline
-      
-      // Use $or to match any of the search conditions
-      query.$or = searchConditions;
+    // Execute query with populate
+    let productsQuery = Product.find(query)
+      .populate('category', 'name')
+      .populate('subCategory', 'name')
+      .sort({ date: -1 });
+
+    const totalCount = await Product.countDocuments(query);
+
+    // Apply pagination
+    if (page || limit) {
+      const currentPage = parseInt(page) || 1;
+      const productLimit = parseInt(limit) || 50;
+      const skip = (currentPage - 1) * productLimit;
+      productsQuery = productsQuery.skip(skip).limit(productLimit);
     }
 
-    // Use aggregation pipeline for better search with category matching and relevance scoring
-    let aggregationPipeline = [];
-    
-    // Match stage with base query
-    aggregationPipeline.push({ $match: query });
-    
-    // Lookup stages for category and subcategory
-    aggregationPipeline.push({
-      $lookup: {
-        from: 'categories',
-        localField: 'category',
-        foreignField: '_id',
-        as: 'categoryInfo'
-      }
-    });
-    
-    aggregationPipeline.push({
-      $lookup: {
-        from: 'subcategories',
-        localField: 'subCategory',
-        foreignField: '_id',
-        as: 'subCategoryInfo'
-      }
-    });
-    
-    // Add category and subcategory names for search
-    aggregationPipeline.push({
-      $addFields: {
-        categoryName: { $arrayElemAt: ['$categoryInfo.name', 0] },
-        subCategoryName: { $arrayElemAt: ['$subCategoryInfo.name', 0] }
-      }
-    });
-    
-    // If search is active, add category and subcategory search and relevance scoring
-    if (search && search.trim()) {
-      const searchWords = search.trim().split(/\s+/).filter(word => word.length > 0);
-      const regexPatterns = searchWords.map(word => 
-        new RegExp(word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i')
-      );
-      
-      // Add category and subcategory search conditions
-      const categorySearchConditions = [
-        {
-          categoryName: { $regex: searchTerm, $options: 'i' }
-        },
-        {
-          subCategoryName: { $regex: searchTerm, $options: 'i' }
-        }
-      ];
-      
-      // Add category search to the main query
-      query.$or = query.$or ? [...query.$or, ...categorySearchConditions] : categorySearchConditions;
-      
-      // Add relevance scoring
-      aggregationPipeline.push({
-        $addFields: {
-          relevanceScore: {
-            $add: [
-              // Name matches (highest weight)
-              {
-                $multiply: [
-                  {
-                    $size: {
-                      $filter: {
-                        input: searchWords,
-                        cond: { $regexMatch: { input: '$name', regex: { $concat: ['(?i)', '$$this'] } } }
-                      }
-                    }
-                  },
-                  10
-                ]
-              },
-              // Category matches
-              {
-                $multiply: [
-                  {
-                    $size: {
-                      $filter: {
-                        input: searchWords,
-                        cond: { $regexMatch: { input: '$categoryName', regex: { $concat: ['(?i)', '$$this'] } } }
-                      }
-                    }
-                  },
-                  8
-                ]
-              },
-              // Subcategory matches
-              {
-                $multiply: [
-                  {
-                    $size: {
-                      $filter: {
-                        input: searchWords,
-                        cond: { $regexMatch: { input: '$subCategoryName', regex: { $concat: ['(?i)', '$$this'] } } }
-                      }
-                    }
-                  },
-                  6
-                ]
-              },
-              // Material matches
-              {
-                $multiply: [
-                  {
-                    $size: {
-                      $filter: {
-                        input: searchWords,
-                        cond: { $regexMatch: { input: '$material', regex: { $concat: ['(?i)', '$$this'] } } }
-                      }
-                    }
-                  },
-                  4
-                ]
-              },
-              // Colour matches
-              {
-                $multiply: [
-                  {
-                    $size: {
-                      $filter: {
-                        input: searchWords,
-                        cond: { $regexMatch: { input: '$colour', regex: { $concat: ['(?i)', '$$this'] } } }
-                      }
-                    }
-                  },
-                  3
-                ]
-              },
-              // Utility matches
-              {
-                $multiply: [
-                  {
-                    $size: {
-                      $filter: {
-                        input: searchWords,
-                        cond: { $regexMatch: { input: '$utility', regex: { $concat: ['(?i)', '$$this'] } } }
-                      }
-                    }
-                  },
-                  2
-                ]
-              }
-            ]
+    let products = await productsQuery.lean();
+
+    // Adjust prices for city if selected
+    if (city && city !== 'null' && city !== 'undefined') {
+      products = products.map(product => {
+        if (product.cityPrices && Array.isArray(product.cityPrices)) {
+          const cityPrice = product.cityPrices.find(cp => cp.city && cp.city.toString() === city.toString());
+          if (cityPrice) {
+            return {
+              ...product,
+              price: cityPrice.price,
+              regularPrice: cityPrice.regularPrice
+            };
           }
         }
+        return product;
       });
     }
-    
-    // Project stage to clean up the data
-    aggregationPipeline.push({
-      $project: {
-        _id: 1,
-        name: 1,
-        material: 1,
-        size: 1,
-        colour: 1,
-        utility: 1,
-        care: 1,
-        included: 1,
-        excluded: 1,
-        price: 1,
-        regularPrice: 1,
-        image: 1,
-        images: 1,
-        inStock: 1,
-        stock: 1,
-        isBestSeller: 1,
-        isTrending: 1,
-        isMostLoved: 1,
-        rating: 1,
-        reviews: 1,
-        codAvailable: 1,
-        cities: 1,
-        date: 1,
-        category: { $arrayElemAt: ['$categoryInfo', 0] },
-        subCategory: { $arrayElemAt: ['$subCategoryInfo', 0] },
-        relevanceScore: { $ifNull: ['$relevanceScore', 0] }
-      }
-    });
-    
-    // Sort stage
-    if (search && search.trim()) {
-      aggregationPipeline.push({ $sort: { relevanceScore: -1, date: -1 } });
-    } else {
-      aggregationPipeline.push({ $sort: { date: -1 } });
-    }
-    
-    // Get total count for pagination
-    const totalCountPipeline = [...aggregationPipeline, { $count: 'total' }];
-    const totalCountResult = await Product.aggregate(totalCountPipeline);
-    const totalCount = totalCountResult.length > 0 ? totalCountResult[0].total : 0;
-
-    // Apply pagination only if page or limit parameters are provided
-    if (page || limit) {
-      const currentPage = page && !isNaN(parseInt(page)) ? Math.max(1, parseInt(page)) : 1;
-      const productLimit = limit && !isNaN(parseInt(limit)) ? parseInt(limit) : 50;
-      const skip = (currentPage - 1) * productLimit;
-      const totalPages = Math.ceil(totalCount / productLimit);
-
-      // Add pagination to aggregation pipeline
-      aggregationPipeline.push({ $skip: skip });
-      aggregationPipeline.push({ $limit: productLimit });
-
-      const products = await Product.aggregate(aggregationPipeline);
-
-      // Return products with pagination metadata
-      return res.json({
-        products,
-        total: totalCount,
-        pagination: {
-          total: totalCount,
-          page: currentPage,
-          limit: productLimit,
-          totalPages
-        }
-      });
-    }
-
-    // No pagination - return all products
-    const products = await Product.aggregate(aggregationPipeline);
 
     res.json({
+      success: true,
       products,
-      total: totalCount
+      total: totalCount,
+      pagination: {
+        total: totalCount,
+        page: parseInt(page) || 1,
+        limit: parseInt(limit) || products.length,
+        totalPages: Math.ceil(totalCount / (parseInt(limit) || 50))
+      }
     });
+
   } catch (error) {
     console.error('Error fetching products:', error);
-    res.status(500).json({ message: "Error fetching products", error: error.message });
+    res.status(500).json({ success: false, message: "Error fetching products", error: error.message });
   }
 };
 
@@ -365,14 +104,14 @@ const getAllProducts = async (req, res) => {
 const getSearchSuggestions = async (req, res) => {
   try {
     const { q: query, city, limit = 10 } = req.query;
-    
+
     if (!query || query.trim().length < 2) {
       return res.json({ suggestions: [], categories: [], products: [] });
     }
 
     const searchTerm = query.trim();
     const searchWords = searchTerm.split(/\s+/).filter(word => word.length > 0);
-    const regexPatterns = searchWords.map(word => 
+    const regexPatterns = searchWords.map(word =>
       new RegExp(word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i')
     );
 
@@ -386,7 +125,7 @@ const getSearchSuggestions = async (req, res) => {
     if (city) {
       const City = require('../models/City');
       let cityId = null;
-      
+
       if (mongoose.Types.ObjectId.isValid(city)) {
         cityId = city;
       } else {
@@ -395,7 +134,7 @@ const getSearchSuggestions = async (req, res) => {
           cityId = cityDoc._id;
         }
       }
-      
+
       if (cityId) {
         productQuery.cities = cityId;
       }
@@ -490,6 +229,7 @@ const getSearchSuggestions = async (req, res) => {
           name: 1,
           price: 1,
           image: 1,
+          cityPrices: 1,
           category: { $arrayElemAt: ['$categoryInfo', 0] },
           subCategory: { $arrayElemAt: ['$subCategoryInfo', 0] },
           relevanceScore: 1
@@ -504,7 +244,7 @@ const getSearchSuggestions = async (req, res) => {
     if (city) {
       const City = require('../models/City');
       let cityId = null;
-      
+
       if (mongoose.Types.ObjectId.isValid(city)) {
         cityId = city;
       } else {
@@ -513,7 +253,7 @@ const getSearchSuggestions = async (req, res) => {
           cityId = cityDoc._id;
         }
       }
-      
+
       if (cityId) {
         categoryQuery.cities = cityId;
       }
@@ -534,7 +274,7 @@ const getSearchSuggestions = async (req, res) => {
 
     // Create suggestions array
     const suggestions = [];
-    
+
     // Add category suggestions
     categories.forEach(category => {
       suggestions.push({
@@ -548,11 +288,19 @@ const getSearchSuggestions = async (req, res) => {
 
     // Add product suggestions
     products.forEach(product => {
+      let displayPrice = product.price;
+      if (city && product.cityPrices && Array.isArray(product.cityPrices)) {
+        const cityIdToMatch = mongoose.Types.ObjectId.isValid(city) ? city : null;
+        if (cityIdToMatch) {
+          const cityPrice = product.cityPrices.find(cp => cp.city.toString() === cityIdToMatch.toString());
+          if (cityPrice) displayPrice = cityPrice.price;
+        }
+      }
       suggestions.push({
         type: 'product',
         id: product._id,
         name: product.name,
-        price: product.price,
+        price: displayPrice,
         image: product.image,
         category: product.category?.name,
         subCategory: product.subCategory?.name
@@ -576,18 +324,18 @@ const getProductsBySection = async (req, res) => {
   try {
     const { section } = req.params;
     const { city } = req.query;
-    
+
     let query = {
       // Only show in-stock products
       inStock: true,
       stock: { $gt: 0 }
     };
-    
+
     // Add city filter if provided
     if (city) {
       const City = require('../models/City');
       let cityId = null;
-      
+
       if (mongoose.Types.ObjectId.isValid(city)) {
         cityId = city;
       } else {
@@ -597,14 +345,14 @@ const getProductsBySection = async (req, res) => {
           cityId = cityDoc._id;
         }
       }
-      
+
       if (cityId) {
         // Find ONLY products that have this city in their cities array
         query.cities = cityId;
       }
     }
-    
-    switch(section) {
+
+    switch (section) {
       case 'bestsellers':
         query.isBestSeller = true;
         break;
@@ -617,11 +365,40 @@ const getProductsBySection = async (req, res) => {
       default:
         return res.status(400).json({ message: "Invalid section" });
     }
-    
+
     // UPDATED: Populate category and subCategory for section-based queries
-    const products = await Product.find(query)
+    let products = await Product.find(query)
       .populate('category', 'name')
       .populate('subCategory', 'name');
+
+    // If city is provided, adjust prices for each product based on cityPrices
+    if (city) {
+      // Find city ID if not already a valid ObjectId
+      let cityId = city;
+      if (!mongoose.Types.ObjectId.isValid(city)) {
+        const City = require('../models/City');
+        const cityDoc = await City.findOne({ name: new RegExp(`^${city}$`, 'i') });
+        cityId = cityDoc ? cityDoc._id : null;
+      }
+
+      if (cityId) {
+        products = products.map(product => {
+          if (product.cityPrices && Array.isArray(product.cityPrices)) {
+            const cityPrice = product.cityPrices.find(cp => cp.city.toString() === cityId.toString());
+            if (cityPrice) {
+              const productObj = product.toObject();
+              return {
+                ...productObj,
+                price: cityPrice.price,
+                regularPrice: cityPrice.regularPrice
+              };
+            }
+          }
+          return product;
+        });
+      }
+    }
+
     res.json(products);
   } catch (error) {
     console.error(`Error fetching ${section} products:`, error);
@@ -634,28 +411,50 @@ const getProduct = async (req, res) => {
   try {
     const { id } = req.params;
     let product;
-    
+
     // Try to find by MongoDB ID first
     if (mongoose.Types.ObjectId.isValid(id)) {
       product = await Product.findById(id)
         .populate('category', 'name slug')
         .populate('subCategory', 'name slug');
     }
-    
+
     // If not found by ID or ID is invalid, try to find by name (URL-decoded and slug-to-name conversion)
     if (!product) {
       // Convert slug back to searchable name (replace hyphens with spaces and make case-insensitive)
       const nameFromSlug = decodeURIComponent(id).replace(/-/g, ' ');
-      product = await Product.findOne({ 
-        name: new RegExp(`^${nameFromSlug}$`, 'i') 
+      product = await Product.findOne({
+        name: new RegExp(`^${nameFromSlug}$`, 'i')
       })
         .populate('category', 'name slug')
         .populate('subCategory', 'name slug');
     }
-    
+
     if (!product) {
       return res.status(404).json({ message: "Product not found" });
     }
+
+    // If city is provided, adjust prices
+    const { city } = req.query;
+    if (city) {
+      let cityId = city;
+      if (!mongoose.Types.ObjectId.isValid(city)) {
+        const City = require('../models/City');
+        const cityDoc = await City.findOne({ name: new RegExp(`^${city}$`, 'i') });
+        cityId = cityDoc ? cityDoc._id : null;
+      }
+
+      if (cityId && product.cityPrices && Array.isArray(product.cityPrices)) {
+        const cityPrice = product.cityPrices.find(cp => cp.city.toString() === cityId.toString());
+        if (cityPrice) {
+          const productObj = product.toObject();
+          productObj.price = cityPrice.price;
+          productObj.regularPrice = cityPrice.regularPrice;
+          return res.json(productObj);
+        }
+      }
+    }
+
     res.json(product);
   } catch (error) {
     console.error('Error fetching product:', error);
@@ -670,10 +469,10 @@ const createProductWithFiles = async (req, res) => {
     console.log('Request body:', req.body);
     console.log('Request files:', req.files);
     console.log('Request headers:', req.headers);
-    
+
     if (!req.files || !req.files.mainImage) {
       console.error('Main image missing - files:', req.files);
-      return res.status(400).json({ 
+      return res.status(400).json({
         error: 'Main image is required.',
         message: 'Please upload a main image for the product'
       });
@@ -681,9 +480,9 @@ const createProductWithFiles = async (req, res) => {
 
     const files = req.files;
     const productData = req.body;
-    
+
     const requiredFields = [
-      "name", "material", "size", "colour", 
+      "name", "material", "size", "colour",
       "category", "utility", "price", "regularPrice"
     ];
 
@@ -696,15 +495,15 @@ const createProductWithFiles = async (req, res) => {
     // Validate price values
     const price = parseFloat(productData.price);
     const regularPrice = parseFloat(productData.regularPrice);
-    
+
     if (isNaN(price) || price < 0) {
       return res.status(400).json({ error: 'Invalid price value' });
     }
-    
+
     if (isNaN(regularPrice) || regularPrice < 0) {
       return res.status(400).json({ error: 'Invalid regular price value' });
     }
-    
+
     if (price > regularPrice) {
       return res.status(400).json({ error: 'Price cannot be greater than regular price' });
     }
@@ -729,12 +528,12 @@ const createProductWithFiles = async (req, res) => {
     const productObject = {
       name: productData.name,
       material: productData.material,
-    
+
       size: productData.size,
       colour: productData.colour,
       category: productData.category,
       subCategory: productData.subCategory && productData.subCategory.trim() !== '' ? productData.subCategory : undefined,
-    
+
       utility: productData.utility,
       care: productData.care,
       included: productData.included ? JSON.parse(productData.included) : [],
@@ -748,19 +547,21 @@ const createProductWithFiles = async (req, res) => {
       isTrending: productData.isTrending === 'true',
       isMostLoved: productData.isMostLoved === 'true',
       codAvailable: productData.codAvailable !== 'false',
-      stock: Number(productData.stock) || 0
+      stock: Number(productData.stock) || 0,
+      cities: productData.cities ? (typeof productData.cities === 'string' ? JSON.parse(productData.cities) : productData.cities) : [],
+      cityPrices: productData.cityPrices ? (typeof productData.cityPrices === 'string' ? JSON.parse(productData.cityPrices) : productData.cityPrices) : []
     };
-    
+
     console.log('Product object to save:', productObject);
-    
+
     const newProduct = new Product(productObject);
     console.log('Product instance created, attempting to save...');
-    
+
     const savedProduct = await newProduct.save();
     console.log('Product saved successfully:', savedProduct._id);
-    
-    res.status(201).json({ 
-      message: "Product created successfully", 
+
+    res.status(201).json({
+      message: "Product created successfully",
       product: savedProduct,
     });
   } catch (error) {
@@ -770,35 +571,35 @@ const createProductWithFiles = async (req, res) => {
     console.error('Error stack:', error.stack);
     console.error('Request body:', req.body);
     console.error('Request files:', req.files);
-    
+
     // Handle specific error types
     if (error.name === 'ValidationError') {
       const validationErrors = Object.values(error.errors).map(err => err.message);
-      return res.status(400).json({ 
-        message: "Validation Error", 
+      return res.status(400).json({
+        message: "Validation Error",
         error: "Please check the following fields: " + validationErrors.join(', '),
         details: validationErrors
       });
     }
-    
+
     if (error.name === 'CastError') {
-      return res.status(400).json({ 
-        message: "Invalid Data Type", 
+      return res.status(400).json({
+        message: "Invalid Data Type",
         error: `Invalid value for field: ${error.path}`,
         details: error.message
       });
     }
-    
+
     if (error.code === 11000) {
-      return res.status(400).json({ 
-        message: "Duplicate Entry", 
+      return res.status(400).json({
+        message: "Duplicate Entry",
         error: "A product with this information already exists",
         details: error.message
       });
     }
-    
-    res.status(500).json({ 
-      message: "Error creating product", 
+
+    res.status(500).json({
+      message: "Error creating product",
       error: error.message,
       details: process.env.NODE_ENV === 'development' ? error.stack : undefined
     });
@@ -811,7 +612,7 @@ const updateProductWithFiles = async (req, res) => {
     const id = req.params.id;
     const files = req.files || {};
     const productData = req.body;
-    
+
     const existingProduct = await Product.findById(id);
     if (!existingProduct) {
       return res.status(404).json({ message: "Product not found" });
@@ -839,7 +640,7 @@ const updateProductWithFiles = async (req, res) => {
       colour: productData.colour || existingProduct.colour,
       category: productData.category || existingProduct.category,
       subCategory: productData.subCategory && productData.subCategory.trim() !== '' ? productData.subCategory : (productData.subCategory === '' ? undefined : existingProduct.subCategory), // Handle empty string
-   
+
       utility: productData.utility || existingProduct.utility,
       care: productData.care || existingProduct.care,
       included: productData.included ? JSON.parse(productData.included) : existingProduct.included,
@@ -853,7 +654,9 @@ const updateProductWithFiles = async (req, res) => {
       isTrending: productData.isTrending !== undefined ? (productData.isTrending === 'true') : existingProduct.isTrending,
       isMostLoved: productData.isMostLoved !== undefined ? (productData.isMostLoved === 'true') : existingProduct.isMostLoved,
       codAvailable: productData.codAvailable !== undefined ? (productData.codAvailable !== 'false') : existingProduct.codAvailable,
-      stock: productData.stock !== undefined ? Number(productData.stock) : existingProduct.stock
+      stock: productData.stock !== undefined ? Number(productData.stock) : existingProduct.stock,
+      cities: productData.cities ? (typeof productData.cities === 'string' ? JSON.parse(productData.cities) : productData.cities) : existingProduct.cities,
+      cityPrices: productData.cityPrices ? (typeof productData.cityPrices === 'string' ? JSON.parse(productData.cityPrices) : productData.cityPrices) : existingProduct.cityPrices
     };
 
     const result = await Product.findByIdAndUpdate(id, updatedProductData, { new: true });
@@ -922,8 +725,8 @@ const updateProductSections = async (req, res) => {
     console.error('=== Error Updating Sections ===');
     console.error('Error details:', error);
     console.error('Stack trace:', error.stack);
-    res.status(500).json({ 
-      message: "Error updating product sections", 
+    res.status(500).json({
+      message: "Error updating product sections",
       error: error.message,
       details: error.stack
     });

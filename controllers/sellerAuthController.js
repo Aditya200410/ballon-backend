@@ -751,6 +751,16 @@ exports.deleteSeller = async (req, res) => {
 exports.updateSellerProfile = async (req, res) => {
   try {
     const { id } = req.params;
+    const mongoose = require('mongoose');
+
+    // Check for valid ObjectId
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid seller ID',
+        error: `Cast to ObjectId failed for value "${id}"`
+      });
+    }
 
     // Process uploaded images
     let images = [];

@@ -40,24 +40,24 @@ const orderSchema = new mongoose.Schema({
       }
     }
   },
-  
+
   // NEW: For scheduling a specific delivery date and time
   scheduledDelivery: { type: Date, required: false },
 
   items: [orderItemSchema], // Use the correct schema for items
-  
+
   // NEW: Optional array for add-ons like gift wrap, etc.
-  addOns: [addOnSchema], 
+  addOns: [addOnSchema],
 
   totalAmount: { type: Number, required: true },
   paymentMethod: { type: String, required: true },
-  orderStatus: { 
-    type: String, 
+  orderStatus: {
+    type: String,
     default: 'processing',
     enum: ['processing', 'confirmed', 'manufacturing', 'shipped', 'delivered']
   },
-  paymentStatus: { 
-    type: String, 
+  paymentStatus: {
+    type: String,
     required: true,
     enum: ['pending', 'completed', 'failed', 'pending_upfront']
   },
@@ -66,6 +66,7 @@ const orderSchema = new mongoose.Schema({
   sellerToken: { type: String, required: false }, // Track which seller referred this order
   commission: { type: Number, default: 0 }, // Commission amount for this order
   transactionId: { type: String, required: false }, // PhonePe transaction ID
+  phonepeMerchantOrderId: { type: String, required: false, index: true }, // For matching PhonePe webhook callbacks
   couponCode: { type: String, required: false }, // Coupon code if applied
 }, { timestamps: true });
 

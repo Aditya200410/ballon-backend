@@ -8,6 +8,7 @@ console.log('Controller keys:', Object.keys(phonepeController)); // should inclu
 // PhonePe Payment Routes
 router.post('/phonepe', phonepeController.createPhonePeOrder);
 router.post('/phonepe/callback', phonepeController.phonePeCallback);
+router.post('/phonepe/webhook', phonepeController.phonePeWebhook);
 router.get('/phonepe/status/:orderId', phonepeController.getPhonePeStatus);
 
 // PhonePe Refund Routes
