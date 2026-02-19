@@ -16,11 +16,21 @@ const getAllProducts = async (req, res) => {
       stock: { $gt: 0 }
     };
 
-    // If city provided, filter by city
+    // If city provided, resolve it and filter
+    let resolvedCityId = null;
     if (city && city !== 'null' && city !== 'undefined') {
-      const mongoose = require('mongoose');
       if (mongoose.Types.ObjectId.isValid(city)) {
-        query.cities = city;
+        resolvedCityId = city;
+      } else {
+        const City = require('../models/City');
+        const cityDoc = await City.findOne({ name: new RegExp(`^${city}$`, 'i') });
+        if (cityDoc) {
+          resolvedCityId = cityDoc._id;
+        }
+      }
+
+      if (resolvedCityId) {
+        query.cities = resolvedCityId;
       }
     }
 
@@ -66,10 +76,10 @@ const getAllProducts = async (req, res) => {
     let products = await productsQuery.lean();
 
     // Adjust prices for city if selected
-    if (city && city !== 'null' && city !== 'undefined') {
+    if (resolvedCityId) {
       products = products.map(product => {
         if (product.cityPrices && Array.isArray(product.cityPrices)) {
-          const cityPrice = product.cityPrices.find(cp => cp.city && cp.city.toString() === city.toString());
+          const cityPrice = product.cityPrices.find(cp => cp.city && cp.city.toString() === resolvedCityId.toString());
           if (cityPrice) {
             return {
               ...product,
@@ -122,21 +132,21 @@ const getSearchSuggestions = async (req, res) => {
     };
 
     // Add city filter if provided
+    let resolvedCityId = null;
     if (city) {
       const City = require('../models/City');
-      let cityId = null;
 
       if (mongoose.Types.ObjectId.isValid(city)) {
-        cityId = city;
+        resolvedCityId = city;
       } else {
         const cityDoc = await City.findOne({ name: new RegExp(`^${city}$`, 'i') });
         if (cityDoc) {
-          cityId = cityDoc._id;
+          resolvedCityId = cityDoc._id;
         }
       }
 
-      if (cityId) {
-        productQuery.cities = cityId;
+      if (resolvedCityId) {
+        productQuery.cities = resolvedCityId;
       }
     }
 
@@ -241,22 +251,8 @@ const getSearchSuggestions = async (req, res) => {
 
     // Get matching categories
     const categoryQuery = { isActive: true };
-    if (city) {
-      const City = require('../models/City');
-      let cityId = null;
-
-      if (mongoose.Types.ObjectId.isValid(city)) {
-        cityId = city;
-      } else {
-        const cityDoc = await City.findOne({ name: new RegExp(`^${city}$`, 'i') });
-        if (cityDoc) {
-          cityId = cityDoc._id;
-        }
-      }
-
-      if (cityId) {
-        categoryQuery.cities = cityId;
-      }
+    if (resolvedCityId) {
+      categoryQuery.cities = resolvedCityId;
     }
 
     const categorySearchConditions = [
@@ -289,12 +285,9 @@ const getSearchSuggestions = async (req, res) => {
     // Add product suggestions
     products.forEach(product => {
       let displayPrice = product.price;
-      if (city && product.cityPrices && Array.isArray(product.cityPrices)) {
-        const cityIdToMatch = mongoose.Types.ObjectId.isValid(city) ? city : null;
-        if (cityIdToMatch) {
-          const cityPrice = product.cityPrices.find(cp => cp.city.toString() === cityIdToMatch.toString());
-          if (cityPrice) displayPrice = cityPrice.price;
-        }
+      if (resolvedCityId && product.cityPrices && Array.isArray(product.cityPrices)) {
+        const cityPrice = product.cityPrices.find(cp => cp.city && cp.city.toString() === resolvedCityId.toString());
+        if (cityPrice) displayPrice = cityPrice.price;
       }
       suggestions.push({
         type: 'product',
