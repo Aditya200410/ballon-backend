@@ -275,6 +275,80 @@ exports.createPhonePeOrder = async (req, res) => {
   }
 };
 
+// Helper function to process successful payment
+const processOrderPayment = async (order, transactionId) => {
+  try {
+    // Avoid double processing if already completed or upfront paid
+    if (order.paymentStatus === 'completed' || order.paymentStatus === 'pending_upfront') {
+      console.log(`[processOrderPayment] Order ${order.customOrderId} already processed with status: ${order.paymentStatus}`);
+      return order;
+    }
+
+    console.log(`[processOrderPayment] Starting post-payment processing for order: ${order.customOrderId}`);
+
+    // Determine target status
+    // If it's a COD order, the upfront payment means they now only owe the remaining amount.
+    // We use 'pending_upfront' to signify "Paid upfront, pending rest on COD"
+    const targetStatus = order.paymentMethod === 'cod' ? 'pending_upfront' : 'completed';
+
+    // Update basic order info
+    order.paymentStatus = targetStatus;
+    // Store PhonePe's transaction order ID
+    if (transactionId) order.transactionId = transactionId;
+    await order.save();
+
+    console.log(`[processOrderPayment] Updated order ${order.customOrderId} status to ${targetStatus}`);
+
+    // -- Commission Logic --
+    if (order.sellerToken) {
+      try {
+        const Seller = require('../models/Seller');
+        const commissionController = require('./commissionController');
+        const seller = await Seller.findOne({ sellerToken: order.sellerToken });
+        if (seller) {
+          // Calculate commission (example: 30%)
+          const commissionRate = 0.30;
+          await commissionController.createCommissionEntry(order._id, seller._id, order.totalAmount, commissionRate);
+          console.log(`[processOrderPayment] Commission entry created for seller: ${seller.businessName}`);
+        }
+      } catch (err) {
+        console.error('[processOrderPayment] Commission error:', err);
+      }
+    }
+
+    // -- Stock Logic --
+    for (const item of order.items) {
+      if (item.productId) {
+        try {
+          const Product = require('../models/Product');
+          const product = await Product.findById(item.productId);
+          if (product) {
+            product.stock = Math.max(0, (product.stock || 0) - (item.quantity || 1));
+            if (product.stock === 0) product.inStock = false;
+            await product.save();
+          }
+        } catch (err) {
+          console.error(`[processOrderPayment] Stock update error for product ${item.productId}:`, err);
+        }
+      }
+    }
+
+    // -- Send Notifications --
+    try {
+      const { sendOrderConfirmationEmail } = require('./orderController');
+      await sendOrderConfirmationEmail(order);
+      console.log(`[processOrderPayment] Confirmation email sent for order: ${order.customOrderId}`);
+    } catch (err) {
+      console.error("[processOrderPayment] Notification error:", err);
+    }
+
+    return order;
+  } catch (error) {
+    console.error('[processOrderPayment] Critical error during payment processing:', error);
+    throw error;
+  }
+};
+
 // ----------------------------
 // PhonePe Webhook handler
 // ----------------------------
@@ -283,9 +357,7 @@ exports.phonePeWebhook = async (req, res) => {
 
   try {
     // 1. Verify Authorization Header
-    // Format: SHA256(username:password)
     const authHeader = req.headers['authorization'];
-
     if (!authHeader) {
       console.warn("[phonePeWebhook] Missing Authorization header");
       return res.status(401).json({ success: false, message: "Unauthorized" });
@@ -299,12 +371,10 @@ exports.phonePeWebhook = async (req, res) => {
       return res.status(500).json({ success: false, message: "Server configuration error" });
     }
 
-    // Calculate expected hash
     const expectedHash = crypto.createHash('sha256')
       .update(`${webhookUsername}:${webhookPassword}`)
       .digest('hex');
 
-    // Check if it matches (case-insensitive check is safer for hex)
     if (authHeader.toLowerCase() !== expectedHash.toLowerCase()) {
       console.warn("[phonePeWebhook] Invalid Authorization header");
       return res.status(401).json({ success: false, message: "Unauthorized" });
@@ -321,74 +391,40 @@ exports.phonePeWebhook = async (req, res) => {
     // 3. Handle Events
     if (event === 'checkout.order.completed') {
       const { merchantOrderId, transactionId, state } = payload;
-
-      console.log(`[phonePeWebhook] Processing completed order: ${merchantOrderId}`);
+      console.log(`[phonePeWebhook] Processing completed event for order: ${merchantOrderId}`);
 
       if (state !== 'COMPLETED') {
         console.log(`[phonePeWebhook] Order state is ${state}, ignoring.`);
         return res.status(200).json({ success: true, message: "Ignored non-completed state" });
       }
 
-      // Find order
-      const order = await Order.findOne({ phonepeMerchantOrderId: merchantOrderId });
+      // Find order by merchantOrderId or PhonePe transactionId
+      let order = await Order.findOne({
+        $or: [
+          { phonepeMerchantOrderId: merchantOrderId },
+          { transactionId: transactionId }
+        ]
+      });
 
       if (!order) {
-        console.warn(`[phonePeWebhook] Order not found for Merchant Order ID: ${merchantOrderId}`);
+        console.warn(`[phonePeWebhook] Order not found for ID: ${merchantOrderId} or ${transactionId}`);
         return res.status(404).json({ success: false, message: "Order not found" });
       }
 
-      if (order.paymentStatus === 'completed') {
-        console.log(`[phonePeWebhook] Order ${order.customOrderId} already marked as completed`);
-        return res.status(200).json({ success: true, message: "Already processed" });
-      }
-
-      // Update Order
-      order.paymentStatus = "completed";
-      order.transactionId = transactionId || merchantOrderId;
-      await order.save();
-
-      console.log(`[phonePeWebhook] Updated order ${order.customOrderId} status to Completed`);
-
-      // 4. Post-payment logic: Commission, Stock, Notifications
-      // This is exactly what was in orderController.js
-
-      // -- Commission Logic --
-      if (order.sellerToken) {
-        const seller = await Seller.findOne({ sellerToken: order.sellerToken });
-        if (seller) {
-          const commissionAmount = order.totalAmount * 0.30;
-          try {
-            await commissionController.createCommissionEntry(order._id, seller._id, order.totalAmount, 0.30);
-          } catch (err) { console.error('Commission error:', err); }
-        }
-      }
-
-      // -- Stock Logic --
-      for (const item of order.items) {
-        if (item.productId) {
-          try {
-            const product = await Product.findById(item.productId);
-            if (product) {
-              product.stock = Math.max(0, (product.stock || 0) - (item.quantity || 1));
-              if (product.stock === 0) product.inStock = false;
-              await product.save();
-            }
-          } catch (err) { console.error('Stock update error:', err); }
-        }
-      }
-
-      // -- Send Notifications --
-      const { sendOrderConfirmationEmail } = require('./orderController');
-      sendOrderConfirmationEmail(order).catch(err =>
-        console.error("[phonePeWebhook] Notification error:", err)
-      );
+      // Process the successful payment
+      await processOrderPayment(order, transactionId);
 
       return res.status(200).json({ success: true, message: "Webhook processed successfully" });
 
     } else if (event === 'checkout.order.failed') {
       console.log(`[phonePeWebhook] Payment failed for order: ${payload.merchantOrderId}`);
       await Order.findOneAndUpdate(
-        { phonepeMerchantOrderId: payload.merchantOrderId },
+        {
+          $or: [
+            { phonepeMerchantOrderId: payload.merchantOrderId },
+            { transactionId: payload.transactionId }
+          ]
+        },
         { paymentStatus: 'failed' }
       );
       return res.status(200).json({ success: true, message: "Payment failed event received" });
@@ -405,23 +441,26 @@ exports.phonePeWebhook = async (req, res) => {
 
 exports.phonePeCallback = async (req, res) => {
   try {
-    // Accept both merchantOrderId and orderId, but use orderId for status check
-    const { merchantOrderId, orderId, amount, status, code, merchantId } = req.body;
+    const { merchantOrderId, orderId, status } = req.body;
     console.log('PhonePe callback received:', req.body);
-    if (!merchantOrderId || !orderId || !status) {
+
+    if (!merchantOrderId && !orderId) {
       return res.status(400).json({
         success: false,
-        message: 'Invalid callback data: merchantOrderId, orderId, and status are required'
+        message: 'Invalid callback data: merchantOrderId or orderId required'
       });
     }
+
+    const idToVerify = orderId || merchantOrderId;
+
     try {
       const accessToken = await getPhonePeToken();
       const env = process.env.PHONEPE_ENV || 'sandbox';
       const baseUrl = env === 'production'
         ? 'https://api.phonepe.com/apis/pg'
         : 'https://api-preprod.phonepe.com/apis/pg-sandbox';
-      // Use orderId (PhonePe's transaction ID) for status check
-      const apiEndpoint = `/checkout/v2/order/${orderId}/status`;
+
+      const apiEndpoint = `/checkout/v2/order/${idToVerify}/status`;
       const response = await axios.get(
         baseUrl + apiEndpoint,
         {
@@ -432,82 +471,65 @@ exports.phonePeCallback = async (req, res) => {
           timeout: 30000
         }
       );
+
       console.log('PhonePe verification response:', response.data);
+
       if (response.data && response.data.state === 'COMPLETED') {
-        console.log(`Payment completed for transaction: ${merchantOrderId}`);
-        // Update order in DB and send confirmation email
-        const order = await Order.findOneAndUpdate(
-          { transactionId: orderId },
-          { paymentStatus: 'completed' },
-          { new: true }
-        );
-        if (order) {
-          await sendOrderConfirmationEmail(order);
-        } else {
-          console.warn('Order not found for transactionId:', orderId);
-        }
-        return res.json({
-          success: true,
-          message: 'Payment completed successfully',
-          orderId: orderId,
-          merchantOrderId: merchantOrderId,
-          status: 'COMPLETED'
+        // Find the order
+        const order = await Order.findOne({
+          $or: [
+            { phonepeMerchantOrderId: merchantOrderId },
+            { phonepeMerchantOrderId: orderId },
+            { transactionId: orderId },
+            { transactionId: merchantOrderId }
+          ]
         });
-      } else if (response.data && response.data.state === 'FAILED') {
-        console.log(`Payment failed for transaction: ${merchantOrderId}`);
+
+        if (order) {
+          await processOrderPayment(order, orderId || response.data.orderId);
+          return res.json({
+            success: true,
+            message: 'Payment completed successfully',
+            orderId: orderId,
+            status: 'COMPLETED'
+          });
+        } else {
+          console.warn('Order not found during callback verification');
+          return res.status(404).json({ success: false, message: 'Order not found' });
+        }
+      } else {
         return res.json({
           success: false,
-          message: 'Payment failed',
-          orderId: orderId,
-          merchantOrderId: merchantOrderId,
-          status: 'FAILED',
-          errorCode: response.data.errorCode,
-          detailedErrorCode: response.data.detailedErrorCode
-        });
-      } else {
-        console.log(`Payment pending for transaction: ${merchantOrderId}`);
-        return res.json({
-          success: true,
-          message: 'Payment is pending',
-          orderId: orderId,
-          merchantOrderId: merchantOrderId,
-          status: 'PENDING'
+          message: `Payment status: ${response.data?.state || 'Unknown'}`,
+          status: response.data?.state
         });
       }
-    } catch (verificationError) {
-      console.error('PhonePe verification error:', verificationError);
-      return res.status(500).json({
-        success: false,
-        message: 'Failed to verify payment with PhonePe'
-      });
+    } catch (verifError) {
+      console.error('PhonePe verification error:', verifError);
+      return res.status(500).json({ success: false, message: 'Verification failed' });
     }
   } catch (error) {
     console.error('PhonePe callback error:', error);
-    return res.status(500).json({
-      success: false,
-      message: 'Failed to process callback'
-    });
+    return res.status(500).json({ success: false, message: 'Internal error' });
   }
 };
 
 exports.getPhonePeStatus = async (req, res) => {
   try {
-    // Accept both merchantOrderId and orderId, but use orderId for status check
     const { orderId } = req.params;
     if (!orderId) {
-      return res.status(400).json({
-        success: false,
-        message: 'PhonePe orderId (transaction ID) is required'
-      });
+      return res.status(400).json({ success: false, message: 'orderId is required' });
     }
+
     const env = process.env.PHONEPE_ENV || 'sandbox';
     const accessToken = await getPhonePeToken();
     const baseUrl = env === 'production'
       ? 'https://api.phonepe.com/apis/pg'
       : 'https://api-preprod.phonepe.com/apis/pg-sandbox';
+
     const apiEndpoint = `/checkout/v2/order/${orderId}/status`;
     console.log(`Checking PhonePe status for orderId: ${orderId}`);
-    console.log(`API URL: ${baseUrl}${apiEndpoint}`);
+
     const response = await axios.get(
       baseUrl + apiEndpoint,
       {
@@ -518,75 +540,39 @@ exports.getPhonePeStatus = async (req, res) => {
         timeout: 30000
       }
     );
+
     console.log('PhonePe status response:', response.data);
-    // Only COMPLETED is considered success; all others are not
-    // Try to extract merchantOrderId from metaInfo if available
-    let merchantOrderId = null;
-    if (response.data && response.data.metaInfo && response.data.metaInfo.merchantOrderId) {
-      merchantOrderId = response.data.metaInfo.merchantOrderId;
-    } else if (response.data && response.data.orderId) {
-      // Optionally, look up merchantOrderId from your DB if you store the mapping
-      // merchantOrderId = await lookupMerchantOrderId(response.data.orderId);
-    }
-    if (response.data && response.data.state) {
+
+    if (response.data && response.data.state === 'COMPLETED') {
+      // PROACTIVE UPDATE: Check if our DB is updated
+      const order = await Order.findOne({
+        $or: [
+          { phonepeMerchantOrderId: orderId },
+          { transactionId: orderId }
+        ]
+      });
+
+      if (order && order.paymentStatus === 'pending') {
+        console.log(`[getPhonePeStatus] Proactively updating order ${order.customOrderId} to completed`);
+        await processOrderPayment(order, orderId);
+      }
+
       return res.json({
-        success: response.data.state === 'COMPLETED',
-        data: {
-          orderId: response.data.orderId,
-          merchantOrderId,
-          state: response.data.state,
-          amount: response.data.amount,
-          expireAt: response.data.expireAt,
-          paymentDetails: response.data.paymentDetails || [],
-          errorCode: response.data.errorCode,
-          detailedErrorCode: response.data.detailedErrorCode,
-          errorContext: response.data.errorContext
-        },
-        message: response.data.state === 'COMPLETED' ? 'Payment completed' : (response.data.state === 'FAILED' ? 'Payment failed' : 'Payment pending')
-      });
-    } else if (response.data && response.data.success === false) {
-      return res.status(400).json({
-        success: false,
-        message: response.data.message || 'Failed to get transaction status',
-        code: response.data.code
-      });
-    } else {
-      return res.status(400).json({
-        success: false,
-        message: 'Invalid response from PhonePe'
+        success: true,
+        data: response.data,
+        message: 'Payment completed'
       });
     }
-  } catch (error) {
-    const phonePeError = error.response?.data;
-    console.error('PhonePe status check error:', phonePeError || error.message);
-    if (phonePeError && typeof phonePeError === 'object') {
-      return res.status(error.response.status || 500).json({
-        success: false,
-        message: phonePeError.message || 'PhonePe error',
-        code: phonePeError.code,
-        data: phonePeError.data || null
-      });
-    }
-    if (error.response?.status === 404) {
-      return res.status(404).json({
-        success: false,
-        message: 'Order not found'
-      });
-    } else if (error.response?.status === 401) {
-      return res.status(401).json({
-        success: false,
-        message: 'Authentication failed'
-      });
-    } else if (error.code === 'ECONNABORTED') {
-      return res.status(408).json({
-        success: false,
-        message: 'Request timeout'
-      });
-    }
-    return res.status(500).json({
-      success: false,
-      message: error.message || 'Failed to check transaction status'
+
+    return res.json({
+      success: response.data?.state === 'COMPLETED',
+      data: response.data,
+      message: response.data?.state || 'Unknown'
     });
+
+  } catch (error) {
+    console.error('PhonePe status check error:', error.response?.data || error.message);
+    return res.status(500).json({ success: false, message: 'Failed to check status' });
   }
 };
 
